@@ -12,7 +12,7 @@ import {
   Save, Printer, ArrowLeft, Plus, Trash2, 
   Table as TableIcon, CheckSquare, ListOrdered, Minus, Lock, Unlock,
   CheckCircle, ArrowRight, ArrowUp, ArrowDown, ChevronUp, ChevronDown,
-  FileText, MessageSquare, Users, Eye, Edit3, Loader2
+  FileText, MessageSquare, Users, Eye, Edit3, Loader2, FileUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -396,6 +396,7 @@ export default function FormEditorPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, message: string, onConfirm: () => void}>({ isOpen: false, message: '', onConfirm: () => {} });
   const printRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (form) {
@@ -475,6 +476,90 @@ export default function FormEditorPage() {
   const removeItem = (itemId: string) => {
     const newItems = localForm.items?.filter(item => item.id !== itemId);
     updateForm({ items: newItems });
+  };
+
+  const importWord = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const mammoth = await import('mammoth');
+      const arrayBuffer = await file.arrayBuffer();
+      const htmlResult = await mammoth.convertToHtml({ arrayBuffer });
+      const html = htmlResult.value;
+
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const newItems: FormItem[] = [];
+      let currentItem: FormItem | null = null;
+
+      const parseTable = (tableNode: HTMLTableElement) => {
+        const rows: string[][] = [];
+        Array.from(tableNode.querySelectorAll('tr')).forEach(tr => {
+          const cells = Array.from(tr.querySelectorAll('td, th')).map(c => c.innerHTML?.trim() || '');
+          rows.push(cells);
+        });
+        if (rows.length === 0) return undefined;
+        return {
+          columns: rows[0],
+          rows: rows.slice(1)
+        };
+      };
+
+      const processElement = (node: Element) => {
+        if (node.tagName === 'OL' || node.tagName === 'UL') {
+          Array.from(node.children).forEach(li => {
+            if (li.tagName === 'LI') {
+               const tableNode = li.querySelector('table');
+               let clonedLi = li.cloneNode(true) as Element;
+               const innerTable = clonedLi.querySelector('table');
+               if (innerTable) innerTable.remove();
+               
+               let textHtml = clonedLi.innerHTML.trim();
+               
+               currentItem = { id: uuidv4(), type: node.tagName === 'OL' ? 'numbered' : 'bullet', text: textHtml };
+               
+               if (tableNode) {
+                  currentItem.table = parseTable(tableNode as HTMLTableElement);
+               }
+               newItems.push(currentItem);
+            }
+          });
+        } else if (node.tagName === 'P') {
+          const text = node.textContent?.trim() || '';
+          if (/^\d+[\.\)\-]\s/.test(text)) {
+             let textHtml = node.innerHTML.trim();
+             textHtml = textHtml.replace(/^\d+[\.\)\-]\s*/, '');
+             currentItem = { id: uuidv4(), type: 'numbered', text: textHtml };
+             newItems.push(currentItem);
+          } else if (/^\-[\s]/.test(text)) {
+             let textHtml = node.innerHTML.trim();
+             textHtml = textHtml.replace(/^\-[\s]*/, '');
+             currentItem = { id: uuidv4(), type: 'bullet', text: textHtml };
+             newItems.push(currentItem);
+          }
+        } else if (node.tagName === 'TABLE') {
+          if (currentItem) {
+             currentItem.table = parseTable(node as HTMLTableElement);
+          }
+        } else {
+          Array.from(node.children).forEach(processElement);
+        }
+      };
+
+      Array.from(doc.body.children).forEach(processElement);
+
+      if (newItems.length > 0) {
+        updateForm({ items: [...(localForm.items || []), ...newItems] });
+        toast.success(`${newItems.length} gündem maddesi başarıyla içe aktarıldı.`);
+      } else {
+        toast.error('Formda geçerli bir gündem maddesi (numaralı liste) bulunamadı.');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Word dosyası okunurken hata oluştu.');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const addTableToItem = (itemId: string) => {
@@ -772,6 +857,21 @@ export default function FormEditorPage() {
                   <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                     <h3 className="text-xs font-bold text-slate-500 uppercase">Gündem Maddeleri</h3>
                     <div className="flex gap-2">
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={importWord} 
+                        accept=".docx" 
+                        className="hidden" 
+                      />
+                      <button 
+                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                        onClick={() => fileInputRef.current?.click()} 
+                        className="flex items-center gap-1 text-xs font-bold uppercase bg-blue-50 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 border border-blue-200 disabled:opacity-50"
+                        title="Word (.docx) dosyasından gündem maddelerini içe aktar"
+                      >
+                        <FileUp className="w-3 h-3" /> Word'den Aktar
+                      </button>
                       <button 
                         disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
                         onClick={() => addItem('numbered')} 
