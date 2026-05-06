@@ -4,14 +4,17 @@ import React, { useState, useEffect } from 'react';
 import { db, useLiveQuery, Member } from '@/lib/db';
 import { AppLayout } from '@/components/Layout';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, Trash2, GripVertical, UserCheck, UserPlus, Save, Loader2 } from 'lucide-react';
+import { Plus, Trash2, GripVertical, UserCheck, UserPlus, Save, Loader2, ArrowUp, ArrowDown, Award } from 'lucide-react';
 import { DebouncedInput } from '@/components/DebouncedInput';
+import { toast } from 'sonner';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 export default function MembersPage() {
   const members = useLiveQuery(() => db.members.orderBy('order').toArray());
   const [localMembers, setLocalMembers] = useState<Member[]>([]);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, message: string, onConfirm: () => void}>({ isOpen: false, message: '', onConfirm: () => {} });
 
   useEffect(() => {
     if (members) {
@@ -52,10 +55,28 @@ export default function MembersPage() {
   };
 
   const deleteMember = (id: string) => {
-    if (confirm('Silmek istediğinize emin misiniz?')) {
-      const newList = localMembers.filter(m => m.id !== id);
-      updateLocalAndDraft(newList);
-    }
+    setConfirmModal({
+      isOpen: true,
+      message: 'Silmek istediğinize emin misiniz?',
+      onConfirm: () => {
+        const newList = localMembers.filter(m => m.id !== id).map((m, i) => ({ ...m, order: i }));
+        updateLocalAndDraft(newList);
+        toast.success('Üye listeden çıkarıldı.');
+      }
+    });
+  };
+
+  const moveMember = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === localMembers.length - 1) return;
+
+    const newList = [...localMembers];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newList[index], newList[targetIndex]] = [newList[targetIndex], newList[index]];
+    
+    // Update orders
+    const updatedList = newList.map((m, i) => ({ ...m, order: i }));
+    updateLocalAndDraft(updatedList);
   };
 
   const saveToCloud = async () => {
@@ -63,15 +84,15 @@ export default function MembersPage() {
     setIsSaving(true);
     try {
       // Clear and bulk add to sync exactly with local state
-      await db.members.clear();
+      await db.members.clear(true);
       for (const m of localMembers) {
-        await db.members.put(m);
+        await db.members.put(m, true);
       }
       setIsDirty(false);
       localStorage.removeItem('draft_members');
-      alert('Üye listesi başarıyla güncellendi.');
+      toast.success('Üye listesi başarıyla güncellendi.');
     } catch (e) {
-      alert('Kaydedilirken bir hata oluştu.');
+      toast.error('Kaydedilirken bir hata oluştu.');
     } finally {
       setIsSaving(false);
     }
@@ -124,10 +145,28 @@ export default function MembersPage() {
             ) : (
               localMembers.map((member) => (
                 <div key={member.id} className="grid grid-cols-12 gap-4 p-5 items-center group hover:bg-blue-50/30 transition-colors">
-                  <div className="col-span-1 flex items-center justify-center text-slate-300">
-                    <GripVertical className="w-5 h-5" />
+                  <div className="col-span-1 flex flex-col items-center justify-center gap-1">
+                    <button 
+                      onClick={() => moveMember(localMembers.indexOf(member), 'up')}
+                      disabled={localMembers.indexOf(member) === 0}
+                      className="text-slate-300 hover:text-blue-500 disabled:opacity-0"
+                    >
+                      <ArrowUp className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => moveMember(localMembers.indexOf(member), 'down')}
+                      disabled={localMembers.indexOf(member) === localMembers.length - 1}
+                      className="text-slate-300 hover:text-blue-500 disabled:opacity-0"
+                    >
+                      <ArrowDown className="w-4 h-4" />
+                    </button>
                   </div>
-                  <div className="col-span-3 space-y-2">
+                  <div className="col-span-3 space-y-2 relative">
+                    {localMembers.indexOf(member) === 0 && (
+                      <div className="absolute -top-6 left-0 flex items-center gap-1 bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider animate-pulse">
+                        <Award className="w-3 h-3" /> Heyet Başkanı / Vali
+                      </div>
+                    )}
                     <input
                       type="text"
                       disabled={isSaving}
@@ -210,6 +249,13 @@ export default function MembersPage() {
             </p>
           </div>
         </div>
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+          variant="danger"
+        />
       </div>
     </AppLayout>
   );

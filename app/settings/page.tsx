@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { db, useLiveQuery } from '@/lib/db';
 import { AppLayout } from '@/components/Layout';
 import { ImagePlus, Trash2, Save, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function SettingsPage() {
   const settings = useLiveQuery(() => db.settings.get('default'));
@@ -72,9 +73,9 @@ export default function SettingsPage() {
       await db.settings.put(localSettings);
       setIsDirty(false);
       localStorage.removeItem('draft_settings');
-      alert('Ayarlar başarıyla kaydedildi.');
+      toast.success('Ayarlar başarıyla kaydedildi.');
     } catch (e) {
-      alert('Hata: Ayarlar kaydedilemedi.');
+      toast.error('Hata: Ayarlar kaydedilemedi.');
     } finally {
       setIsSaving(false);
     }

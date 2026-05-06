@@ -28,7 +28,7 @@ export async function GET(
       const decrypted = decryptData(doc.payload);
       const base = { id: doc._id.toString(), _id: doc._id };
       
-      let data;
+      let data: any;
       if (collection === 'forms') {
         data = { items: [], signatureMembers: [], headerTop: '', headerLine4: '', footerText: '', title: 'İsimsiz Form', layout: {}, ...decrypted, ...base };
       } else if (collection === 'members') {
@@ -109,6 +109,7 @@ export async function DELETE(
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
     
     await model.findByIdAndDelete(id);
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

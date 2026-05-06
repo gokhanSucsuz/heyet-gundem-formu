@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { FileText, Users, Settings, Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import { Toaster } from 'sonner';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -102,7 +103,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Menu className="w-6 h-6 text-slate-600" />
           </button>
           <span className="font-bold text-sm uppercase tracking-wider text-slate-900">Mütevelli Heyeti</span>
-          <div className="w-10"></div>
+          <div className="w-10 flex justify-end">
+          </div>
         </header>
 
         <div id="main-scroll-container" className="flex-1 overflow-y-auto relative p-2 sm:p-6 lg:p-8">
@@ -111,6 +113,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </main>
+      <Toaster position="bottom-right" richColors closeButton />
     </div>
   );
 }

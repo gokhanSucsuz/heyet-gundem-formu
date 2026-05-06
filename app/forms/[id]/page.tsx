@@ -6,6 +6,8 @@ import { AppLayout } from '@/components/Layout';
 import { useParams, useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { useReactToPrint } from 'react-to-print';
+import { toast } from 'sonner';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { 
   Save, Printer, ArrowLeft, Plus, Trash2, 
   Table as TableIcon, CheckSquare, ListOrdered, Minus, Lock, Unlock,
@@ -16,6 +18,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { DebouncedInput } from '@/components/DebouncedInput';
+
+const isSiraColumn = (name: string) => {
+  const n = name.toLowerCase().trim();
+  return n === 'sıra' || n === 'sıra no' || n === 'sira' || n === 'sira no' || n === 'no';
+};
 
 function PrintPreview({ form, members, settings }: { form: OfficialForm, members: Member[], settings: any }) {
   const activeLayout = settings?.layout || form.layout;
@@ -42,8 +49,8 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
     : selectedMembers;
 
   // Split members into groups for professional signature layout
-  const topSigners = finalSigners.slice(0, 2); 
-  const otherSigners = finalSigners.slice(2);
+  const topSigners = finalSigners.slice(0, 1); 
+  const otherSigners = finalSigners.slice(1);
 
   const formatMemberTitle = (m: Member | MemberSnapshot) => {
     let title = m.title;
@@ -56,11 +63,6 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
       return `${m.proxyName}\n(${m.name} Vekili)`;
     }
     return m.name;
-  };
-
-  const isSiraColumn = (name: string) => {
-    const n = name.toLowerCase().trim();
-    return n === 'sıra' || n === 'sıra no' || n === 'sira' || n === 'sira no' || n === 'no';
   };
 
   const renderItem = (item: FormItem, index: number) => {
@@ -206,22 +208,14 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
               <span>: {form.decisionDate ? new Date(form.decisionDate).toLocaleDateString('tr-TR') : '.../.../20...'}</span>
             </div>
             <div className="flex gap-2">
-              <span className="min-w-[100px]">KARAR SAATİ</span>
-              <span>: {form.decisionTime || '...:...'}</span>
+              <span className="min-w-[100px]">KARAR NO</span>
+              <span>: {form.decisionNo || '...'}</span>
             </div>
             {form.isPostponed && (
               <div className="text-red-600 text-[10px] uppercase tracking-widest mt-1">
                 ** TOPLANTI ERTELENMİŞTİR **
               </div>
             )}
-          </div>
-          <div className="flex flex-col items-end gap-1 text-right" style={{ fontSize: form.layout?.fontSizeHeaderInfo ? `${form.layout?.fontSizeHeaderInfo}px` : 'inherit' }}>
-            {form.headerLine4?.includes('<') ? (
-              <div className="rich-text-preview" dangerouslySetInnerHTML={{ __html: form.headerLine4 }} />
-            ) : (
-              <div>{form.headerLine4}</div>
-            )}
-            <div className="text-[11px] font-normal italic text-slate-500">Kayıt ID: {form.id.split('-')[0].toUpperCase()}</div>
           </div>
         </div>
 
@@ -255,9 +249,9 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
               fontFamily: form.layout?.signatureFontFamily || 'inherit'
           }}>
             {topSigners.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-12 w-full mb-12 text-center">
+              <div className="flex justify-center w-full mb-12 text-center">
                 {topSigners.map(m => (
-                  <div key={m.id} className="flex flex-col items-center w-[30%] min-w-[150px]">
+                  <div key={m.id} className="flex flex-col items-center w-full">
                     <div className="font-bold whitespace-pre-wrap" style={{ 
                       fontSize: activeLayout?.signatureFontSize ? `${activeLayout?.signatureFontSize}px` : '12px',
                       lineHeight: 1.1
@@ -400,6 +394,7 @@ export default function FormEditorPage() {
   const [localForm, setLocalForm] = useState<OfficialForm | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, message: string, onConfirm: () => void}>({ isOpen: false, message: '', onConfirm: () => {} });
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -452,8 +447,9 @@ export default function FormEditorPage() {
       await db.forms.put(localForm);
       setIsDirty(false);
       localStorage.removeItem(`draft_form_${id}`);
+      toast.success('Form kaydedildi.');
     } catch (e) {
-      alert('Hata: Buluta kayıt yapılamadı. İnternet bağlantınızı kontrol edin.');
+      toast.error('Hata: Buluta kayıt yapılamadı. İnternet bağlantınızı kontrol edin.');
     } finally {
       setIsSaving(false);
     }
@@ -551,22 +547,26 @@ export default function FormEditorPage() {
               <div className="flex gap-2">
                 {!localForm.isLocked && (
                   <button 
-                    onClick={async () => {
-                      if (confirm('Kararı kesinleştirmek istiyor musunuz? Bu işlemden sonra sadece toplantı ertelenirse değişiklik yapılabilir.')) {
-                        const snapshots = allMembers
-                          .filter(m => localForm.signatureMembers.includes(m.id))
-                          .map(m => ({
-                            id: m.id,
-                            name: m.name,
-                            title: m.title,
-                            isProxy: m.isProxy,
-                            proxyName: m.proxyName,
-                            proxyTitle: m.proxyTitle,
-                            order: m.order
-                          }));
-                        await updateForm({ isLocked: true, signatureSnapshots: snapshots });
-                        alert('Belge kesinleştirildi. Yazdırabilirsiniz.');
-                      }
+                    onClick={() => {
+                      setConfirmModal({
+                        isOpen: true,
+                        message: 'Kararı kesinleştirmek istiyor musunuz? Bu işlemden sonra sadece toplantı ertelenirse değişiklik yapılabilir.',
+                        onConfirm: async () => {
+                          const snapshots = allMembers
+                            .filter(m => localForm.signatureMembers.includes(m.id))
+                            .map(m => ({
+                              id: m.id,
+                              name: m.name,
+                              title: m.title,
+                              isProxy: m.isProxy,
+                              proxyName: m.proxyName,
+                              proxyTitle: m.proxyTitle,
+                              order: m.order
+                            }));
+                          await updateForm({ isLocked: true, signatureSnapshots: snapshots });
+                          toast.success('Belge kesinleştirildi. Yazdırabilirsiniz.');
+                        }
+                      });
                     }}
                     disabled={isSaving}
                     className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded font-bold text-[10px] shadow-sm transition-all active:scale-95 disabled:opacity-50"
@@ -680,7 +680,16 @@ export default function FormEditorPage() {
                         disabled={isSaving || !localForm.isPostponed}
                         className={`w-full text-sm border border-slate-300 rounded p-2 outline-none transition-all ${!localForm.isPostponed || isSaving ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 border-blue-200'}`}
                         value={localForm.decisionDate || ''}
-                        onChange={(e) => updateForm({ decisionDate: e.target.value })}
+                        onChange={(e) => {
+                          const newDate = e.target.value;
+                          const formattedDate = newDate ? new Date(newDate).toLocaleDateString('tr-TR') : '.../.../20...';
+                          const newTitle = `${formattedDate} - Karar No: ${localForm.decisionNo || '...'}`;
+                          updateForm({ 
+                            decisionDate: newDate, 
+                            headerLine4: newTitle, 
+                            title: newTitle 
+                          });
+                        }}
                       />
                       {!localForm.isPostponed && <p className="text-[10px] text-slate-400 mt-1 italic">* Değiştirmek için 'Ertelendi' seçiniz.</p>}
                     </div>
@@ -703,10 +712,18 @@ export default function FormEditorPage() {
                         {!localForm.isPostponed && <Lock className="w-3 h-3 text-slate-400" />}
                       </div>
                       <DebouncedInput 
-                        className={`w-full text-sm border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none ${isSaving || (localForm.isLocked && !localForm.isPostponed) ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`} 
+                        className={`w-full text-sm border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none ${!localForm.isPostponed || isSaving ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 border-blue-200'}`} 
                         value={localForm.decisionNo || ''}
-                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                        onChange={(val) => updateForm({ decisionNo: val })}
+                        disabled={isSaving || !localForm.isPostponed}
+                        onChange={(val) => {
+                          const formattedDate = localForm.decisionDate ? new Date(localForm.decisionDate).toLocaleDateString('tr-TR') : '.../.../20...';
+                          const newTitle = `${formattedDate} - Karar No: ${val || '...'}`;
+                          updateForm({ 
+                            decisionNo: val, 
+                            headerLine4: newTitle, 
+                            title: newTitle 
+                          });
+                        }}
                       />
                       {!localForm.isPostponed && <p className="text-[10px] text-slate-400 mt-1 italic">* Değiştirmek için 'Ertelendi' seçiniz.</p>}
                     </div>
@@ -741,11 +758,11 @@ export default function FormEditorPage() {
                   <div className="pt-4">
                     <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Tarih / Karar No Görünümü (Belge Üzerindeki)</label>
                     <DebouncedInput 
-                      className={`w-full text-sm border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none ${isSaving || (localForm.isLocked && !localForm.isPostponed) ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`} 
+                      className={`w-full text-sm border border-slate-300 rounded p-2 outline-none bg-slate-50 text-slate-400 cursor-not-allowed`} 
                       value={localForm.headerLine4}
-                      disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                      onChange={(val) => updateForm({ headerLine4: val })}
-                      placeholder="Örn: .../05/2023 - Karar No: 2023/01"
+                      disabled={true}
+                      onChange={(val) => updateForm({ headerLine4: val, title: val })}
+                      placeholder="Otomatik oluşturulur..."
                     />
                   </div>
                 </div>
@@ -1106,6 +1123,14 @@ export default function FormEditorPage() {
           </button>
         </div>
       )}
+      
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        variant="warning"
+      />
     </AppLayout>
   );
 }

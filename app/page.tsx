@@ -1,15 +1,19 @@
 'use client';
 
+import { useState } from 'react';
 import { db, useLiveQuery } from '@/lib/db';
 import { AppLayout } from '@/components/Layout';
 import Link from 'next/link';
-import { Plus, FileText, Calendar, Edit, Trash2 } from 'lucide-react';
+import { Plus, FileText, Calendar, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 export default function FormsPage() {
   const router = useRouter();
   const forms = useLiveQuery(() => db.forms.orderBy('updatedAt').reverse().toArray());
+  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, message: string, onConfirm: () => void}>({ isOpen: false, message: '', onConfirm: () => {} });
 
   const createForm = async () => {
     const id = uuidv4();
@@ -55,9 +59,15 @@ export default function FormsPage() {
 
   const deleteForm = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
-    if (confirm('Bu formu silmek istediğinize emin misiniz?')) {
-      await db.forms.delete(id);
-    }
+    setConfirmModal({
+      isOpen: true,
+      message: 'Bu formu silmek istediğinize emin misiniz?',
+      onConfirm: async () => {
+        await db.forms.delete(id);
+        toast.success('Form silindi.');
+        setConfirmModal({ ...confirmModal, isOpen: false });
+      }
+    });
   };
 
   return (
@@ -121,11 +131,11 @@ export default function FormsPage() {
                 </h3>
                 <div className="text-[13px] font-medium text-slate-500 flex flex-col gap-1.5 mt-auto pt-4 border-t border-slate-100">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold uppercase text-xs text-slate-400">Karar No:</span> {form.decisionNo}
+                    <span className="font-bold uppercase text-xs text-slate-400">Karar No:</span> {form.decisionNo || '-'}
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-slate-400" />
-                    <span>{new Date(form.updatedAt).toLocaleDateString('tr-TR')}</span>
+                    <span>{form.decisionDate ? new Date(form.decisionDate).toLocaleDateString('tr-TR') : 'Tarih Belirtilmemiş'}</span>
                   </div>
                 </div>
               </div>
@@ -133,6 +143,14 @@ export default function FormsPage() {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        variant="danger"
+      />
     </AppLayout>
   );
 }

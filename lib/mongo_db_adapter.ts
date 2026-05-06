@@ -101,8 +101,8 @@ class MongoTable<T extends { id: string }> {
     }
   }
 
-  async add(data: T): Promise<string> {
-    await fetch(`/api/db/${this.collection}`, {
+  async add(data: T, silent = false): Promise<string> {
+    await fetch(`/api/db/${this.collection}${silent ? '?silent=true' : ''}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -110,8 +110,8 @@ class MongoTable<T extends { id: string }> {
     return data.id;
   }
 
-  async put(data: T): Promise<string> {
-    await fetch(`/api/db/${this.collection}`, {
+  async put(data: T, silent = false): Promise<string> {
+    await fetch(`/api/db/${this.collection}${silent ? '?silent=true' : ''}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -119,18 +119,18 @@ class MongoTable<T extends { id: string }> {
     return data.id;
   }
 
-  async update(id: string, changes: Partial<T>): Promise<number> {
+  async update(id: string, changes: Partial<T>, silent = false): Promise<number> {
     const existing = await this.get(id);
     if (!existing) return 0;
     const updated = { ...existing, ...changes };
-    await this.put(updated);
+    await this.put(updated, silent);
     // Trigger a refresh event for useLiveQuery mock
     window.dispatchEvent(new CustomEvent(`db-update-${this.collection}`));
     return 1;
   }
 
-  async delete(id: string): Promise<void> {
-    await fetch(`/api/db/${this.collection}?id=${id}`, { method: 'DELETE' });
+  async delete(id: string, silent = false): Promise<void> {
+    await fetch(`/api/db/${this.collection}?id=${id}${silent ? '&silent=true' : ''}`, { method: 'DELETE' });
     window.dispatchEvent(new CustomEvent(`db-update-${this.collection}`));
   }
 
@@ -139,16 +139,16 @@ class MongoTable<T extends { id: string }> {
     return arr.length;
   }
 
-  async clear(): Promise<void> {
+  async clear(silent = false): Promise<void> {
     const arr = await this.toArray();
     for (const item of arr) {
-      await this.delete(item.id);
+      await this.delete(item.id, silent);
     }
   }
 
-  async bulkAdd(data: T[]): Promise<void> {
+  async bulkAdd(data: T[], silent = false): Promise<void> {
     for (const item of data) {
-      await this.add(item);
+      await this.add(item, silent);
     }
     window.dispatchEvent(new CustomEvent(`db-update-${this.collection}`));
   }
