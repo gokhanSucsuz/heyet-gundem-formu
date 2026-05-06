@@ -58,6 +58,11 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
     return m.name;
   };
 
+  const isSiraColumn = (name: string) => {
+    const n = name.toLowerCase().trim();
+    return n === 'sıra' || n === 'sıra no' || n === 'sira' || n === 'sira no' || n === 'no';
+  };
+
   const renderItem = (item: FormItem, index: number) => {
     const numbering = item.type === 'numbered' ? `${index + 1}.` : '•';
     return (
@@ -76,20 +81,36 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
         
         {item.hasTable && item.table && (
           <div className="ml-8 mt-2">
-            <table className="w-full border-collapse border border-black table-fixed">
+            <table className="w-full border-collapse border border-black">
               <thead>
                 <tr>
-                  {item.table.columns.map((col, i) => (
-                    <th key={i} className={`border border-black bg-slate-50 font-bold text-[10px] uppercase ${tablePad}`}>{col}</th>
-                  ))}
+                  {item.table.columns.map((col, i) => {
+                    const isSira = isSiraColumn(col);
+                    return (
+                      <th 
+                        key={i} 
+                        className={`border border-black bg-slate-50 font-bold text-[10px] uppercase ${tablePad} ${isSira ? 'w-[1%] whitespace-nowrap' : ''}`}
+                      >
+                        {col}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
                 {item.table.rows.map((row, ri) => (
                   <tr key={ri}>
-                    {row.map((cell, ci) => (
-                      <td key={ci} className={`border border-black text-[10px] ${tablePad}`}>{cell}</td>
-                    ))}
+                    {row.map((cell, ci) => {
+                      const isSira = isSiraColumn(item.table!.columns[ci]);
+                      return (
+                        <td 
+                          key={ci} 
+                          className={`border border-black text-[10px] ${tablePad} ${isSira ? 'text-center font-bold' : ''}`}
+                        >
+                          {isSira ? (ri + 1) : cell}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -861,7 +882,7 @@ export default function FormEditorPage() {
                                             <div className="flex gap-2 items-center">
                                               <div className="w-8 shrink-0"></div>
                                               {itm.table.columns.map((col, cI) => (
-                                                <div key={cI} className="relative group/col flex-1 min-w-[120px]">
+                                                <div key={cI} className={`relative group/col flex-1 min-w-[120px] ${isSiraColumn(col) ? 'flex-none min-w-0 w-20' : ''}`}>
                                                   <input 
                                                     disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
                                                     className="w-full pr-8 text-xs font-bold uppercase border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 disabled:opacity-50" 
@@ -907,13 +928,12 @@ export default function FormEditorPage() {
                                               <div key={rI} className="flex gap-2 items-center group/row">
                                                 <div className="w-8 shrink-0 text-center text-xs font-bold text-slate-400">{rI + 1}</div>
                                                 {row.map((cell, cI) => {
-                                                  const colName = itm.table!.columns[cI].toLowerCase();
-                                                  const isSira = colName === 'sıra' || colName === 'sıra no' || colName === 'sira' || colName === 'sira no';
+                                                  const isSira = isSiraColumn(itm.table!.columns[cI]);
                                                   return (
                                                     <input 
                                                       key={cI}
                                                       readOnly={isSira || isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                      className={`flex-1 min-w-[120px] text-sm border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none ${isSira ? 'bg-slate-100 text-center text-slate-500 font-bold' : ''} disabled:opacity-50`}
+                                                      className={`${isSira ? 'w-20 flex-none' : 'flex-1 min-w-[120px]'} text-sm border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none ${isSira ? 'bg-slate-100 text-center text-slate-500 font-bold' : ''} disabled:opacity-50`}
                                                       value={isSira ? (rI + 1).toString() : cell}
                                                       onChange={(e) => {
                                                         if (isSira) return;
