@@ -82,8 +82,8 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
         </div>
         
         {item.hasTable && item.table && (
-          <div className="ml-8 mt-2">
-            <table className="w-full border-collapse border border-black">
+          <div className="ml-8 mt-2 w-[calc(100%-2rem)]">
+            <table className="w-full border-collapse border border-black table-fixed break-words">
               <thead>
                 <tr>
                   {item.table.columns.map((col, i) => {
@@ -141,7 +141,7 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
 
   return (
     <div 
-      className={`w-full max-w-[210mm] mx-auto bg-white min-h-[297mm] mb-8 text-black relative flex flex-col items-stretch ${spacing === 'tight' ? 'leading-tight' : spacing === 'relaxed' ? 'leading-loose' : 'leading-snug'}`}
+      className={`w-full max-w-[210mm] mx-auto bg-white min-h-[297mm] mb-8 print:mb-0 print:shadow-none print:border-none text-black relative flex flex-col items-stretch ${spacing === 'tight' ? 'leading-tight' : spacing === 'relaxed' ? 'leading-loose' : 'leading-snug'}`}
       style={{
         paddingTop: `${marginY}mm`,
         paddingBottom: `${marginY}mm`,
@@ -507,7 +507,7 @@ export default function FormEditorPage() {
       const parseTable = (tableNode: HTMLTableElement) => {
         const rows: string[][] = [];
         Array.from(tableNode.querySelectorAll('tr')).forEach(tr => {
-          const cells = Array.from(tr.querySelectorAll('td, th')).map(c => c.innerHTML?.trim() || '');
+          const cells = Array.from(tr.querySelectorAll('td, th')).map(c => c.textContent?.trim() || '');
           rows.push(cells);
         });
         if (rows.length === 0) return undefined;
@@ -544,7 +544,7 @@ export default function FormEditorPage() {
              textHtml = textHtml.replace(/^\d+[\.\)\-]\s*/, '');
              currentItem = { id: uuidv4(), type: 'numbered', text: textHtml };
              newItems.push(currentItem);
-          } else if (/^\-[\s]/.test(text)) {
+          } else if (/^\-/.test(text)) {
              let textHtml = node.innerHTML.trim();
              textHtml = textHtml.replace(/^\-[\s]*/, '');
              if (currentItem) {
