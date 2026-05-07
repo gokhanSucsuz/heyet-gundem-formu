@@ -287,12 +287,6 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
         </div>
       </div>
 
-      {/* Page Numbers container */}
-      {form.layout?.showPageNumbers && (
-        <div className="page-footer hidden print:block fixed bottom-[10mm] w-full text-center text-xs font-bold font-sans">
-          Sayfa <span className="page-number"></span>
-        </div>
-      )}
 
       <style dangerouslySetInnerHTML={{__html: `
         .dotted-leader p { 
@@ -315,10 +309,19 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
         
         .header-rich-text p { margin-bottom: 0px; text-align: center; }
 
-        @page { size: A4; margin: ${marginY}mm ${marginX}mm; }
+        @page { 
+          size: A4; 
+          margin: ${marginY}mm ${marginX}mm; 
+          ${form.layout?.showPageNumbers ? `
+          @bottom-center {
+            content: "Sayfa " counter(page);
+            font-family: sans-serif;
+            font-size: 12px;
+          }
+          ` : ''}
+        }
         @media print {
           body { -webkit-print-color-adjust: exact; background: transparent; }
-          .page-number::after { content: counter(page); }
           .shadow-2xl { box-shadow: none !important; }
           .break-inside-avoid { page-break-inside: avoid; break-inside: avoid; }
         }
