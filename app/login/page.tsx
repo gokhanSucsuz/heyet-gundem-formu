@@ -11,7 +11,7 @@ function LoginContent() {
   return (
     <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-sm border border-slate-200 text-center">
       <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-md border border-slate-100 overflow-hidden">
-        <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
+        <img src="/logo-sydv.jpg" alt="Logo" className="w-full h-full object-cover" />
       </div>
       <h1 className="text-2xl font-bold text-slate-900 mb-2">Sisteme Giriş</h1>
       <p className="text-slate-500 mb-6 text-sm px-4">

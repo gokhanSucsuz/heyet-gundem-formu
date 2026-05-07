@@ -21,7 +21,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside className="w-80 bg-white border-r border-slate-300 flex flex-col hidden lg:flex shadow-xl z-20">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <img src="/logo.jpg" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-blue-200" />
+          <img src="/logo-sydv.jpg" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-blue-200" />
           <div className="flex flex-col">
             <h1 className="font-bold tracking-tight text-sm uppercase text-slate-900 leading-none">Mütevelli Heyeti</h1>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Gündem Aracı</span>
@@ -76,7 +76,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className={`fixed top-0 left-0 bottom-0 w-72 bg-white z-40 transition-transform duration-300 lg:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-             <img src="/logo.jpg" alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
+             <img src="/logo-sydv.jpg" alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
              <span className="font-bold text-sm uppercase">Mütevelli Heyeti</span>
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)}>

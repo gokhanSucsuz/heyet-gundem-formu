@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: 'Resmi Karar Formu Oluşturucu',
   description: 'Gündem maddeleri ve karar çıktı sistemi',
   icons: {
-    icon: '/logo.jpg',
+    icon: '/logo-sydv.jpg',
   },
 };
 
