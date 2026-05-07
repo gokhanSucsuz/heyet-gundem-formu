@@ -517,6 +517,14 @@ export default function FormEditorPage() {
         };
       };
 
+      const ensureParagraph = (html: string) => {
+        const trimmed = html.trim();
+        if (!trimmed.startsWith('<p>') && !trimmed.startsWith('<h')) {
+          return `<p>${trimmed}</p>`;
+        }
+        return trimmed;
+      };
+
       const processElement = (node: Element) => {
         if (node.tagName === 'OL' || node.tagName === 'UL') {
           Array.from(node.children).forEach(li => {
@@ -527,6 +535,7 @@ export default function FormEditorPage() {
                if (innerTable) innerTable.remove();
                
                let textHtml = clonedLi.innerHTML.trim();
+               textHtml = ensureParagraph(textHtml);
                
                currentItem = { id: uuidv4(), type: node.tagName === 'OL' ? 'numbered' : 'bullet', text: textHtml };
                
@@ -542,11 +551,13 @@ export default function FormEditorPage() {
           if (/^\d+[\.\)\-]\s/.test(text)) {
              let textHtml = node.innerHTML.trim();
              textHtml = textHtml.replace(/^\d+[\.\)\-]\s*/, '');
+             textHtml = ensureParagraph(textHtml);
              currentItem = { id: uuidv4(), type: 'numbered', text: textHtml };
              newItems.push(currentItem);
           } else if (/^\-/.test(text)) {
              let textHtml = node.innerHTML.trim();
              textHtml = textHtml.replace(/^\-[\s]*/, '');
+             textHtml = ensureParagraph(textHtml);
              if (currentItem) {
                if (!currentItem.subItems) currentItem.subItems = [];
                currentItem.subItems.push({ id: uuidv4(), type: 'bullet', text: textHtml });
