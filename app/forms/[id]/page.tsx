@@ -69,7 +69,7 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
     const numbering = item.type === 'numbered' ? `${index + 1}.` : '•';
     return (
       <div key={item.id} className="flex flex-col gap-2">
-        <div className="flex text-justify items-baseline">
+        <div className="flex text-left items-baseline">
           <span className="font-bold mr-2 whitespace-nowrap min-w-[20px]" style={{ lineHeight: '1.5' }}>{numbering}</span>
           <div className="flex-1 w-full overflow-hidden leading-tight">
             <div 
@@ -123,7 +123,7 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
         {item.subItems && item.subItems.length > 0 && (
           <div className="ml-8 mt-2 flex flex-col gap-2">
             {item.subItems.map((sub, si) => (
-              <div key={sub.id} className="flex text-justify items-baseline">
+              <div key={sub.id} className="flex text-left items-baseline">
                 <span className="font-bold mr-2 whitespace-nowrap min-w-[20px]" style={{ lineHeight: '1.5' }}>{sub.type === 'numbered' ? `${index + 1}.${si + 1}.` : '•'}</span>
                 <div className="flex-1 w-full overflow-hidden leading-tight">
                   <div 
@@ -252,15 +252,15 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
               <div className="flex justify-center w-full mb-12 text-center">
                 {topSigners.map(m => (
                   <div key={m.id} className="flex flex-col items-center w-full">
-                    <div className="font-bold whitespace-pre-wrap" style={{ 
-                      fontSize: activeLayout?.signatureFontSize ? `${activeLayout?.signatureFontSize}px` : '12px',
-                      lineHeight: 1.1
-                    }}>{formatMemberTitle(m)}</div>
-                    <div style={{ height: `${signatureSpacing}px` }}></div> {/* Signature Space */}
                     <div className="font-bold" style={{ 
                       fontSize: activeLayout?.signatureFontSize ? `${activeLayout?.signatureFontSize}px` : '12px',
                       lineHeight: 1.1
                     }}>{formatMemberName(m)}</div>
+                    <div style={{ height: `${signatureSpacing}px` }}></div> {/* Signature Space */}
+                    <div className="font-bold whitespace-pre-wrap" style={{ 
+                      fontSize: activeLayout?.signatureFontSize ? `${activeLayout?.signatureFontSize}px` : '12px',
+                      lineHeight: 1.1
+                    }}>{formatMemberTitle(m)}</div>
                   </div>
                 ))}
               </div>
@@ -270,15 +270,15 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
               <div className="flex flex-wrap justify-center gap-x-4 gap-y-8 text-center w-full">
                 {otherSigners.map((m) => (
                   <div key={m.id} className="flex flex-col items-center w-[22%] min-w-[120px]">
-                    <div className="font-bold whitespace-pre-wrap" style={{ 
-                      fontSize: activeLayout?.signatureFontSize ? `${activeLayout?.signatureFontSize}px` : '12px',
-                      lineHeight: 1.1
-                    }}>{formatMemberTitle(m)}</div>
-                    <div style={{ height: `${signatureSpacing}px` }}></div> {/* Signature Space */}
                     <div className="font-bold" style={{ 
                       fontSize: activeLayout?.signatureFontSize ? `${activeLayout?.signatureFontSize}px` : '12px',
                       lineHeight: 1.1
                     }}>{formatMemberName(m)}</div>
+                    <div style={{ height: `${signatureSpacing}px` }}></div> {/* Signature Space */}
+                    <div className="font-bold whitespace-pre-wrap" style={{ 
+                      fontSize: activeLayout?.signatureFontSize ? `${activeLayout?.signatureFontSize}px` : '12px',
+                      lineHeight: 1.1
+                    }}>{formatMemberTitle(m)}</div>
                   </div>
                 ))}
               </div>
