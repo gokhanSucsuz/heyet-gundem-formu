@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FileText, Users, Settings, Menu, X } from 'lucide-react';
+import { FileText, Users, Settings, Menu, X, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { Toaster } from 'sonner';
 
@@ -21,7 +21,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside className="w-80 bg-white border-r border-slate-300 flex flex-col hidden lg:flex shadow-xl z-20">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-700 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-blue-200">MH</div>
+          <img src="/logo.jpg" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-blue-200" />
           <div className="flex flex-col">
             <h1 className="font-bold tracking-tight text-sm uppercase text-slate-900 leading-none">Mütevelli Heyeti</h1>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Gündem Aracı</span>
@@ -47,11 +47,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="p-5 border-t border-slate-100">
+        <div className="p-5 border-t border-slate-100 flex flex-col gap-3">
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Kurumsal Çözüm</p>
             <p className="text-[11px] text-slate-600 leading-relaxed font-medium">Resmi yazışma ve kurul kararları yönetim sistemi.</p>
           </div>
+          <button 
+            onClick={() => {
+              import('next-auth/react').then(({ signOut }) => signOut({ callbackUrl: '/login' }));
+            }}
+            className="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-xs font-bold uppercase tracking-tight text-red-600 hover:bg-red-50 hover:text-red-700 w-full text-left"
+          >
+            <LogOut className="w-5 h-5 text-red-500" />
+            <span>Çıkış Yap</span>
+          </button>
         </div>
       </aside>
 
@@ -67,7 +76,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className={`fixed top-0 left-0 bottom-0 w-72 bg-white z-40 transition-transform duration-300 lg:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-             <div className="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center text-white font-bold">MH</div>
+             <img src="/logo.jpg" alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
              <span className="font-bold text-sm uppercase">Mütevelli Heyeti</span>
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)}>
@@ -92,6 +101,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          
+          <button
+            onClick={() => {
+              import('next-auth/react').then(({ signOut }) => signOut({ callbackUrl: '/login' }));
+            }}
+            className="flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase text-red-600 hover:bg-red-50 w-full text-left mt-4"
+          >
+            <LogOut className="w-5 h-5" />
+            <span>Çıkış Yap</span>
+          </button>
         </nav>
       </aside>
 
