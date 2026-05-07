@@ -565,6 +565,52 @@ export default function FormEditorPage() {
     }
   };
 
+  const importExcelToTable = async (itemId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const XLSX = await import('xlsx');
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const json = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1 });
+      
+      if (json.length === 0) {
+        toast.error('Excel dosyası boş.');
+        return;
+      }
+
+      const nonEmptyRows = json.filter(row => Array.isArray(row) && row.some(cell => cell !== undefined && cell !== null && cell.toString().trim() !== ''));
+      
+      if (nonEmptyRows.length < 2) {
+        toast.error('Excel dosyasında tablo verisi bulunamadı (en az başlık ve 1 satır olmalı).');
+        return;
+      }
+
+      const columns = nonEmptyRows[0].map(c => c !== undefined && c !== null ? c.toString().trim() : '');
+      const rows = nonEmptyRows.slice(1).map(row => {
+        const paddedRow = [];
+        for (let i = 0; i < columns.length; i++) {
+           const cell = row[i];
+           paddedRow.push(cell !== undefined && cell !== null ? cell.toString().trim() : '');
+        }
+        return paddedRow;
+      });
+
+      updateItem(itemId, { 
+        table: { columns, rows } 
+      });
+      toast.success('Excel tablosu başarıyla yüklendi.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Excel dosyası okunurken hata oluştu.');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
   const addTableToItem = (itemId: string) => {
     updateItem(itemId, { 
       hasTable: true, 
@@ -993,7 +1039,19 @@ export default function FormEditorPage() {
                                           <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
                                             <TableIcon className="w-4 h-4" /> Tablo Düzenleyici
                                           </h4>
-                                          <button disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)} onClick={() => removeTableFromItem(itm.id)} className="text-xs font-bold text-red-600 uppercase hover:underline disabled:opacity-50">Tabloyu Kaldır</button>
+                                          <div className="flex gap-4 items-center">
+                                            <label className={`text-xs font-bold text-green-600 uppercase cursor-pointer hover:underline flex items-center gap-1 ${isSaving || (localForm.isLocked && !localForm.isPostponed) ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}>
+                                              <FileUp className="w-3.5 h-3.5" /> Excel Yükle
+                                              <input 
+                                                type="file" 
+                                                accept=".xlsx,.xls,.csv" 
+                                                className="hidden" 
+                                                disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                onChange={(e) => importExcelToTable(itm.id, e)}
+                                              />
+                                            </label>
+                                            <button disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)} onClick={() => removeTableFromItem(itm.id)} className="text-xs font-bold text-red-600 uppercase hover:underline disabled:opacity-50">Tabloyu Kaldır</button>
+                                          </div>
                                         </div>
                                         
                                         <div className="overflow-x-auto pb-4">
