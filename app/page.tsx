@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { db, useLiveQuery } from '@/lib/db';
 import { AppLayout } from '@/components/Layout';
 import Link from 'next/link';
-import { Plus, FileText, Calendar, Trash2 } from 'lucide-react';
+import { Plus, FileText, Calendar, Trash2, Lock, Copy } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -70,6 +70,26 @@ export default function FormsPage() {
     });
   };
 
+  const duplicateForm = async (formToCopy: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    const newId = uuidv4();
+    const newForm = {
+      ...formToCopy,
+      id: newId,
+      title: formToCopy.title ? `${formToCopy.title} (Kopya)` : 'Kopya Form',
+      isLocked: false,
+      isPostponed: false,
+      decisionNo: '',
+      decisionDate: new Date().toISOString().split('T')[0],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      signatureSnapshots: []
+    };
+    await db.forms.add(newForm);
+    toast.success('Şablon oluşturuldu. Yeni forma yönlendiriliyorsunuz...');
+    router.push(`/forms/${newId}`);
+  };
+
   return (
     <AppLayout>
       <div className="flex justify-between items-center mb-8">
@@ -107,24 +127,75 @@ export default function FormsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {forms.map(form => (
+          {forms.map(form => {
+            const isLocked = form.isLocked;
+            const isPostponed = form.isPostponed;
+            
+            let iconBgColor = 'bg-blue-50';
+            let iconTextColor = 'text-blue-700';
+            let borderColor = 'border-slate-300 hover:border-blue-500';
+            let badgeText = '';
+            let badgeColor = '';
+            
+            if (isPostponed) {
+              iconBgColor = 'bg-amber-50';
+              iconTextColor = 'text-amber-700';
+              borderColor = 'border-slate-300 hover:border-amber-500';
+              badgeText = 'ERTELENDİ';
+              badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
+            } else if (isLocked) {
+              iconBgColor = 'bg-emerald-50';
+              iconTextColor = 'text-emerald-700';
+              borderColor = 'border-slate-300 hover:border-emerald-500';
+              badgeText = 'KESİNLEŞTİ';
+              badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+            }
+
+            return (
             <Link key={form.id || (form as any)._id} href={`/forms/${form.id}`} className="block group">
-              <div className="bg-white rounded border border-slate-300 p-5 hover:border-blue-500 hover:shadow-md transition-all h-full flex flex-col relative z-0">
+              <div className={`bg-white rounded border ${borderColor} p-5 hover:shadow-md transition-all h-full flex flex-col relative z-0 overflow-hidden`}>
                 <div className="flex justify-between items-start mb-4">
-                  <div className="bg-blue-50 text-blue-700 p-2 rounded">
-                    <FileText className="w-6 h-6" />
+                  <div className="flex items-center gap-3">
+                    <div className={`${iconBgColor} ${iconTextColor} p-2 rounded relative`}>
+                      <FileText className="w-6 h-6" />
+                      {isLocked && !isPostponed && (
+                        <div className="absolute -right-1.5 -bottom-1.5 bg-emerald-100 text-emerald-700 rounded-full p-0.5 border border-white">
+                          <Lock className="w-3 h-3" />
+                        </div>
+                      )}
+                    </div>
+                    {badgeText && (
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded border ${badgeColor} uppercase tracking-tighter self-center`}>
+                        {badgeText}
+                      </span>
+                    )}
                   </div>
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      deleteForm(form.id, e);
-                    }}
-                    className="text-slate-400 hover:text-red-600 p-1 bg-white hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 relative"
-                    title="Formu Sil"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex gap-1 relative z-10">
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        duplicateForm(form, e);
+                      }}
+                      className="text-slate-400 hover:text-blue-600 p-1.5 bg-white hover:bg-blue-50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Şablon Olarak Kopyala"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    {!isLocked && (
+                      <button 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          deleteForm(form.id, e);
+                        }}
+                        className="text-slate-400 hover:text-red-600 p-1.5 bg-white hover:bg-red-50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Formu Sil"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <h3 className="font-bold text-slate-900 text-lg mb-2 line-clamp-2 leading-tight uppercase text-sm">
                   {form.title || 'İSİMSİZ FORM'}
@@ -140,7 +211,8 @@ export default function FormsPage() {
                 </div>
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -436,6 +436,15 @@ export default function FormEditorPage() {
 
   if (!localForm || !allMembers) return <div className="p-8 text-center text-slate-500 italic">Yükleniyor...</div>;
 
+  const canUnlock = () => {
+    if (!localForm.decisionDate) return true;
+    const decisionDate = new Date(localForm.decisionDate);
+    const now = new Date();
+    const diffTime = now.getTime() - decisionDate.getTime();
+    const diffDays = diffTime / (1000 * 3600 * 24);
+    return diffDays <= 2;
+  };
+
   const updateForm = (updates: Partial<OfficialForm>) => {
     if (isSaving) return;
     const updated = { ...localForm, ...updates, updatedAt: Date.now() };
@@ -523,6 +532,7 @@ export default function FormEditorPage() {
                
                if (tableNode) {
                   currentItem.table = parseTable(tableNode as HTMLTableElement);
+                  currentItem.hasTable = true;
                }
                newItems.push(currentItem);
             }
@@ -537,12 +547,18 @@ export default function FormEditorPage() {
           } else if (/^\-[\s]/.test(text)) {
              let textHtml = node.innerHTML.trim();
              textHtml = textHtml.replace(/^\-[\s]*/, '');
-             currentItem = { id: uuidv4(), type: 'bullet', text: textHtml };
-             newItems.push(currentItem);
+             if (currentItem) {
+               if (!currentItem.subItems) currentItem.subItems = [];
+               currentItem.subItems.push({ id: uuidv4(), type: 'bullet', text: textHtml });
+             } else {
+               currentItem = { id: uuidv4(), type: 'bullet', text: textHtml };
+               newItems.push(currentItem);
+             }
           }
         } else if (node.tagName === 'TABLE') {
           if (currentItem) {
              currentItem.table = parseTable(node as HTMLTableElement);
+             currentItem.hasTable = true;
           }
         } else {
           Array.from(node.children).forEach(processElement);
@@ -711,9 +727,16 @@ export default function FormEditorPage() {
                 )}
                 {localForm.isLocked && !localForm.isPostponed && (
                   <button 
-                    onClick={() => updateForm({ isLocked: false })}
-                    disabled={isSaving}
-                    className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded font-bold text-[10px] shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                    onClick={() => {
+                      if (!canUnlock()) {
+                        toast.error('Toplantı tarihinden itibaren 2 gün geçtiği için bu formun kilidi açılamaz.');
+                        return;
+                      }
+                      updateForm({ isLocked: false });
+                    }}
+                    disabled={isSaving || !canUnlock()}
+                    title={!canUnlock() ? 'Toplantı tarihinden 2 gün geçtiği için kilit açılamaz' : 'Kilidi Aç'}
+                    className={`flex items-center gap-1.5 ${!canUnlock() ? 'bg-slate-400 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700 active:scale-95'} text-white px-3 py-1.5 rounded font-bold text-[10px] shadow-sm transition-all disabled:opacity-50`}
                   >
                     <Unlock className="w-3.5 h-3.5" />
                     <span className="hidden sm:block">KİLİDİ AÇ</span>
