@@ -91,7 +91,7 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
                     return (
                       <th 
                         key={i} 
-                        className={`border border-black bg-slate-50 font-bold text-[10px] uppercase ${tablePad} ${isSira ? 'w-[1%] whitespace-nowrap' : ''}`}
+                        className={`border border-black bg-slate-50 font-bold text-[10px] uppercase ${tablePad} ${isSira ? 'w-[50px] text-center' : ''}`}
                       >
                         {col}
                       </th>
