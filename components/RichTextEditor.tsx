@@ -28,7 +28,7 @@ const extensions = [
   Typography,
   TextAlign.configure({
     types: ['heading', 'paragraph'],
-    defaultAlignment: 'justify',
+    defaultAlignment: 'left',
   }),
 ];
 

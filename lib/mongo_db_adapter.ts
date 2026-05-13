@@ -31,12 +31,14 @@ export interface FormSubItem {
   id: string;
   type: 'numbered' | 'bullet' | 'text';
   text: string;
+  age?: string;
 }
 
 export interface FormItem {
   id: string;
   type: 'numbered' | 'bullet' | 'text';
   text: string;
+  age?: string;
   hasTable?: boolean;
   table?: TableConfig;
   indent?: number;
