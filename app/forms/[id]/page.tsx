@@ -398,6 +398,7 @@ export default function FormEditorPage() {
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [sortOrder, setSortOrder] = useState<'none' | 'asc' | 'desc'>('none');
+  const [genderPriority, setGenderPriority] = useState<'female' | 'male'>('female');
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, message: string, onConfirm: () => void}>({ isOpen: false, message: '', onConfirm: () => {} });
   const printRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1110,26 +1111,52 @@ export default function FormEditorPage() {
                                           placeholder="Maddenin metnini girin..."
                                         />
                                       </div>
-                                      <div className="w-24 shrink-0">
-                                        <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Vatandaş Yaşı</label>
-                                        <input 
-                                          type="text"
-                                          value={itm.age || ''}
-                                          placeholder="Yaş"
-                                          disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                          onChange={(e) => {
-                                            if (isSub && parentId) {
-                                              const parentItem = localForm.items?.find(i => i.id === parentId);
-                                              if (parentItem && parentItem.subItems) {
-                                                const newSub = parentItem.subItems.map(s => s.id === itm.id ? { ...s, age: e.target.value } : s);
-                                                updateItem(parentId, { subItems: newSub });
+                                      <div className="w-56 shrink-0 flex gap-2">
+                                        <div className="flex-1">
+                                          <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Yaş</label>
+                                          <input 
+                                            type="text"
+                                            value={itm.age || ''}
+                                            placeholder="Yaş"
+                                            disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                            onChange={(e) => {
+                                              if (isSub && parentId) {
+                                                const parentItem = localForm.items?.find(i => i.id === parentId);
+                                                if (parentItem && parentItem.subItems) {
+                                                  const newSub = parentItem.subItems.map(s => s.id === itm.id ? { ...s, age: e.target.value } : s);
+                                                  updateItem(parentId, { subItems: newSub });
+                                                }
+                                              } else {
+                                                updateItem(itm.id, { age: e.target.value });
                                               }
-                                            } else {
-                                              updateItem(itm.id, { age: e.target.value });
-                                            }
-                                          }}
-                                          className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                                        />
+                                            }}
+                                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                          />
+                                        </div>
+                                        <div className="flex-1">
+                                          <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Cinsiyet</label>
+                                          <select
+                                            value={itm.gender || ''}
+                                            disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                            onChange={(e) => {
+                                              const gender = e.target.value as 'male' | 'female' | '';
+                                              if (isSub && parentId) {
+                                                const parentItem = localForm.items?.find(i => i.id === parentId);
+                                                if (parentItem && parentItem.subItems) {
+                                                  const newSub = parentItem.subItems.map(s => s.id === itm.id ? { ...s, gender: gender || undefined } : s);
+                                                  updateItem(parentId, { subItems: newSub });
+                                                }
+                                              } else {
+                                                updateItem(itm.id, { gender: gender || undefined });
+                                              }
+                                            }}
+                                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white h-[34px]"
+                                          >
+                                            <option value="">-</option>
+                                            <option value="female">KADIN</option>
+                                            <option value="male">ERKEK</option>
+                                          </select>
+                                        </div>
                                       </div>
                                     </div>
                                     
@@ -1377,40 +1404,104 @@ export default function FormEditorPage() {
             ) : (
               <div className="w-full flex-1 overflow-auto preview-container">
                 <div className="flex justify-center mb-4 sticky top-0 z-20">
-                  <div className="bg-white/80 backdrop-blur-sm p-2 rounded-xl border border-slate-200 shadow-lg flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase ml-2">Yaş Sıralaması:</span>
-                    <div className="flex bg-slate-100 p-1 rounded-lg">
-                      <button 
-                        onClick={() => setSortOrder('none')}
-                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${sortOrder === 'none' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                      >
-                        VARSAYILAN
-                      </button>
-                      <button 
-                        onClick={() => setSortOrder('asc')}
-                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${sortOrder === 'asc' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                      >
-                        KÜÇÜKTEN BÜYÜĞE
-                      </button>
-                      <button 
-                        onClick={() => setSortOrder('desc')}
-                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${sortOrder === 'desc' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                      >
-                        BÜYÜKTEN KÜÇÜĞE
-                      </button>
+                  <div className="bg-white/80 backdrop-blur-sm p-3 rounded-2xl border border-slate-200 shadow-xl flex flex-col gap-3 min-w-[500px]">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Otomatik Sıralama Kontrolleri</span>
+                      <button onClick={() => setSortOrder('none')} className="text-[9px] font-bold text-red-500 hover:underline uppercase">Sıralamayı Sıfırla</button>
                     </div>
+                    
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 flex flex-col gap-1.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">1. Cinsiyet Önceliği</span>
+                        <div className="flex bg-slate-100 p-1 rounded-lg">
+                          <button 
+                            onClick={() => setGenderPriority('female')}
+                            className={`flex-1 px-3 py-1.5 text-[10px] font-bold rounded-md transition-all flex items-center justify-center gap-1.5 ${genderPriority === 'female' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                          >
+                            <div className={`w-1.5 h-1.5 rounded-full ${genderPriority === 'female' ? 'bg-pink-500' : 'bg-slate-300'}`}></div>
+                            ÖNCE KADINLAR
+                          </button>
+                          <button 
+                            onClick={() => setGenderPriority('male')}
+                            className={`flex-1 px-3 py-1.5 text-[10px] font-bold rounded-md transition-all flex items-center justify-center gap-1.5 ${genderPriority === 'male' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                          >
+                            <div className={`w-1.5 h-1.5 rounded-full ${genderPriority === 'male' ? 'bg-blue-500' : 'bg-slate-300'}`}></div>
+                            ÖNCE ERKEKLER
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 flex flex-col gap-1.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">2. Yaş Sıralaması</span>
+                        <div className="flex bg-slate-100 p-1 rounded-lg">
+                          <button 
+                            onClick={() => setSortOrder('asc')}
+                            className={`flex-1 px-3 py-1.5 text-[10px] font-bold rounded-md transition-all ${sortOrder === 'asc' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                          >
+                            KÜÇÜKTEN BÜYÜĞE
+                          </button>
+                          <button 
+                            onClick={() => setSortOrder('desc')}
+                            className={`flex-1 px-3 py-1.5 text-[10px] font-bold rounded-md transition-all ${sortOrder === 'desc' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                          >
+                            BÜYÜKTEN KÜÇÜĞE
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-slate-400 italic text-center">* Sadece yaş veya cinsiyet belirtilen maddeler kendi aralarında yer değiştirir. Kurumsal maddeler sabit kalır.</p>
                   </div>
                 </div>
                 <div ref={printRef} className="a4-page">
                   <PrintPreview 
-                    form={{
-                      ...localForm,
-                      items: sortOrder === 'none' ? localForm.items : [...localForm.items].sort((a, b) => {
-                        const ageA = parseInt(a.age || '0') || 0;
-                        const ageB = parseInt(b.age || '0') || 0;
-                        return sortOrder === 'asc' ? ageA - ageB : ageB - ageA;
-                      })
-                    }} 
+                    form={(() => {
+                      const sortItems = (items: any[]): any[] => {
+                        if (!items || items.length === 0) return items;
+                        
+                        // First, sort children recursively
+                        const itemsWithSortedSubs = items.map(item => ({
+                          ...item,
+                          subItems: item.subItems ? sortItems(item.subItems) : item.subItems
+                        }));
+
+                        if (sortOrder === 'none') return itemsWithSortedSubs;
+
+                        const result = [...itemsWithSortedSubs];
+                        const sortableIndices: number[] = [];
+                        const sortableItems: any[] = [];
+                        
+                        result.forEach((item, index) => {
+                          if (item.age || item.gender) {
+                            sortableIndices.push(index);
+                            sortableItems.push(item);
+                          }
+                        });
+
+                        if (sortableItems.length === 0) return result;
+
+                        sortableItems.sort((a, b) => {
+                          if (a.gender !== b.gender) {
+                             if (a.gender === genderPriority) return -1;
+                             if (b.gender === genderPriority) return 1;
+                          }
+                          const ageA = parseInt(a.age || '0') || 0;
+                          const ageB = parseInt(b.age || '0') || 0;
+                          if (ageA !== ageB) return sortOrder === 'asc' ? ageA - ageB : ageB - ageA;
+                          return 0;
+                        });
+
+                        sortableIndices.forEach((originalIndex, i) => {
+                          result[originalIndex] = sortableItems[i];
+                        });
+                        
+                        return result;
+                      };
+
+                      return {
+                        ...localForm,
+                        items: sortItems(localForm.items)
+                      };
+                    })()} 
                     members={allMembers} 
                     settings={settings} 
                   />

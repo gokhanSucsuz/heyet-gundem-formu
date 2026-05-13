@@ -32,6 +32,7 @@ export interface FormSubItem {
   type: 'numbered' | 'bullet' | 'text';
   text: string;
   age?: string;
+  gender?: 'male' | 'female';
 }
 
 export interface FormItem {
@@ -39,6 +40,7 @@ export interface FormItem {
   type: 'numbered' | 'bullet' | 'text';
   text: string;
   age?: string;
+  gender?: 'male' | 'female';
   hasTable?: boolean;
   table?: TableConfig;
   indent?: number;
