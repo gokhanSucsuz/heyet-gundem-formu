@@ -12,7 +12,7 @@ import {
   Save, Printer, ArrowLeft, Plus, Trash2, 
   Table as TableIcon, CheckSquare, ListOrdered, Minus, Lock, Unlock,
   CheckCircle, ArrowRight, ArrowUp, ArrowDown, ChevronUp, ChevronDown,
-  FileText, MessageSquare, Users, Eye, Edit3, Loader2, FileUp
+  FileText, MessageSquare, Users, Eye, Edit3, Loader2, FileUp, FileDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -679,6 +679,24 @@ export default function FormEditorPage() {
     updateItem(itemId, { hasTable: false, table: undefined });
   };
 
+  const exportExcelFromTable = async (table: NonNullable<FormItem['table']>, itemIndex: number) => {
+    try {
+      const XLSX = await import('xlsx');
+      const wsData = [
+        table.columns,
+        ...table.rows
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Tablo");
+      XLSX.writeFile(wb, `madde-${itemIndex + 1}-tablo.xlsx`);
+      toast.success('Tablo Excel olarak indirildi.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Excel dosyası oluşturulurken hata oluştu.');
+    }
+  };
+
   return (
     <AppLayout>
       <div className="flex flex-col h-full h-[calc(100vh-2rem)]">
@@ -1178,6 +1196,12 @@ export default function FormEditorPage() {
                                                 onChange={(e) => importExcelToTable(itm.id, e)}
                                               />
                                             </label>
+                                            <button 
+                                              onClick={() => exportExcelFromTable(itm.table!, idx)} 
+                                              className="text-xs font-bold text-blue-600 uppercase hover:underline flex items-center gap-1"
+                                            >
+                                              <FileDown className="w-3.5 h-3.5" /> Excel İndir
+                                            </button>
                                             <button disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)} onClick={() => removeTableFromItem(itm.id)} className="text-xs font-bold text-red-600 uppercase hover:underline disabled:opacity-50">Tabloyu Kaldır</button>
                                           </div>
                                         </div>
