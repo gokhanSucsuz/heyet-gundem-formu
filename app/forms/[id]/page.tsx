@@ -424,7 +424,6 @@ export default function FormEditorPage() {
       if (detail?.id === id) {
         setIsDirty(false);
         localStorage.removeItem(`draft_form_${id}`);
-        toast.success('Değişiklikler kaydedildi', { id: 'auto-save-toast', duration: 2000, position: 'top-center' });
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
