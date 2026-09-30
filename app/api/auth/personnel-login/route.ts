@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
       personnel: {
         id: personnel._id,
         name: personnel.name,
+        isAdmin: personnel.isAdmin || false,
       }
     });
   } catch (error: any) {

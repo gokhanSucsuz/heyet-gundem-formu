@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 interface Personnel {
   id: string;
   name: string;
+  isAdmin: boolean;
 }
 
 interface PersonnelContextType {

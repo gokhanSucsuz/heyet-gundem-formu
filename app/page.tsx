@@ -9,22 +9,43 @@ import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { usePersonnel } from '@/components/PersonnelProvider';
 
 export default function FormsPage() {
   const router = useRouter();
   const forms = useLiveQuery(() => db.forms.orderBy('updatedAt').reverse().toArray());
+  const { personnel } = usePersonnel();
+  const isAdmin = personnel?.isAdmin || false;
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, message: string, onConfirm: () => void}>({ isOpen: false, message: '', onConfirm: () => {} });
 
   const createForm = async () => {
+    if (!isAdmin) {
+      toast.error('Yeni form oluşturma yetkiniz bulunmuyor.');
+      return;
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Otomatik pasif yapma: Yeni form oluşturulurken, tarihi bugünden eski olan aktif formları pasife çek.
+    if (forms) {
+      for (const f of forms) {
+        const isActive = f.isActive !== false; // default true
+        if (isActive && f.decisionDate && f.decisionDate < today) {
+          await db.forms.update(f.id, { isActive: false });
+        }
+      }
+    }
+
     const id = uuidv4();
     await db.forms.add({
       id,
       title: 'Yeni Karar Formu',
       documentDate: new Date().toLocaleDateString('tr-TR'),
       decisionNo: '2023/ 01',
-      decisionDate: new Date().toISOString().split('T')[0],
+      decisionDate: today,
       decisionTime: '10:00',
       isPostponed: false,
+      isActive: true,
       headerTop: 'T.C\n.......... İLİ\n.......... BAŞKANLIĞI',
       headerMiddle: '',
       headerBottom: '',
@@ -79,6 +100,7 @@ export default function FormsPage() {
       title: formToCopy.title ? `${formToCopy.title} (Kopya)` : 'Kopya Form',
       isLocked: false,
       isPostponed: false,
+      isActive: true,
       decisionNo: '',
       decisionDate: new Date().toISOString().split('T')[0],
       createdAt: Date.now(),
@@ -90,6 +112,16 @@ export default function FormsPage() {
     router.push(`/forms/${newId}`);
   };
 
+  const toggleActiveStatus = async (form: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isAdmin) return;
+    
+    const newStatus = form.isActive === false ? true : false;
+    await db.forms.update(form.id, { isActive: newStatus });
+    toast.success(`Form ${newStatus ? 'aktif' : 'pasif'} duruma getirildi.`);
+  };
+
   return (
     <AppLayout>
       <div className="flex justify-between items-center mb-8">
@@ -97,13 +129,15 @@ export default function FormsPage() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 uppercase">Karar Formları</h1>
           <p className="text-slate-500 mt-1 text-sm font-medium">Hazırlanmış karar ve gündem formları</p>
         </div>
-        <button
-          onClick={createForm}
-          className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded text-sm font-bold transition-colors shadow-sm"
-        >
-          <Plus className="w-5 h-5" />
-          YENİ FORM OLUŞTUR
-        </button>
+        {isAdmin && (
+          <button
+            onClick={createForm}
+            className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded text-sm font-bold transition-colors shadow-sm"
+          >
+            <Plus className="w-5 h-5" />
+            YENİ FORM OLUŞTUR
+          </button>
+        )}
       </div>
 
       {!forms ? (
@@ -130,6 +164,7 @@ export default function FormsPage() {
           {forms.map(form => {
             const isLocked = form.isLocked;
             const isPostponed = form.isPostponed;
+            const isPassive = form.isActive === false;
             
             let iconBgColor = 'bg-blue-50';
             let iconTextColor = 'text-blue-700';
@@ -149,6 +184,13 @@ export default function FormsPage() {
               borderColor = 'border-slate-300 hover:border-emerald-500';
               badgeText = 'KESİNLEŞTİ';
               badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+            }
+            if (isPassive) {
+              iconBgColor = 'bg-slate-100';
+              iconTextColor = 'text-slate-500';
+              borderColor = 'border-slate-200 hover:border-slate-400 opacity-75';
+              badgeText = 'PASİF';
+              badgeColor = 'bg-slate-100 text-slate-600 border-slate-300';
             }
 
             return (
@@ -182,7 +224,16 @@ export default function FormsPage() {
                     >
                       <Copy className="w-4 h-4" />
                     </button>
-                    {!isLocked && (
+                    {isAdmin && (
+                      <button 
+                        onClick={(e) => toggleActiveStatus(form, e)}
+                        className={`text-slate-400 hover:text-amber-600 p-1.5 bg-white hover:bg-amber-50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity ${isPassive ? 'text-amber-500 opacity-100' : ''}`}
+                        title={isPassive ? "Formu Aktif Et" : "Formu Pasif Yap"}
+                      >
+                        <Lock className="w-4 h-4" />
+                      </button>
+                    )}
+                    {!isLocked && isAdmin && (
                       <button 
                         onClick={(e) => {
                           e.preventDefault();

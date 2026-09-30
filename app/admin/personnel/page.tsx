@@ -8,6 +8,7 @@ interface PersonnelItem {
   id: string;
   name: string;
   isActive: boolean;
+  isAdmin: boolean;
   createdAt: string;
 }
 
@@ -18,6 +19,7 @@ export default function AdminPersonnelPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newIsAdmin, setNewIsAdmin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
@@ -58,7 +60,7 @@ export default function AdminPersonnelPage() {
       const res = await fetch('/api/admin/personnel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName.trim(), password: newPassword.trim() }),
+        body: JSON.stringify({ name: newName.trim(), password: newPassword.trim(), isAdmin: newIsAdmin }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -67,6 +69,7 @@ export default function AdminPersonnelPage() {
       }
       setNewName('');
       setNewPassword('');
+      setNewIsAdmin(false);
       setShowAddForm(false);
       fetchPersonnel();
     } catch {
@@ -90,6 +93,17 @@ export default function AdminPersonnelPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, isActive: !currentActive }),
+      });
+      fetchPersonnel();
+    } catch { /* ignore */ }
+  };
+
+  const handleToggleAdmin = async (id: string, currentAdmin: boolean) => {
+    try {
+      await fetch('/api/admin/personnel', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, isAdmin: !currentAdmin }),
       });
       fetchPersonnel();
     } catch { /* ignore */ }
@@ -182,6 +196,16 @@ export default function AdminPersonnelPage() {
                 </div>
               </div>
             </div>
+            <div className="flex items-center gap-2 mt-2">
+              <input 
+                type="checkbox" 
+                id="isAdmin" 
+                checked={newIsAdmin} 
+                onChange={(e) => setNewIsAdmin(e.target.checked)} 
+                className="w-4 h-4 text-blue-500 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2"
+              />
+              <label htmlFor="isAdmin" className="text-xs font-bold text-slate-300">Admin Yetkisi Ver (Form silebilir ve yeni form oluşturabilir)</label>
+            </div>
             {error && <div className="text-red-400 text-xs font-bold">{error}</div>}
             <div className="flex gap-2">
               <button
@@ -252,7 +276,7 @@ export default function AdminPersonnelPage() {
                       <div>
                         <div className="font-bold text-sm">{p.name}</div>
                         <div className="text-[10px] text-slate-500">
-                          {p.isActive ? 'Aktif' : 'Devre Dışı'} • {new Date(p.createdAt).toLocaleDateString('tr-TR')}
+                          {p.isActive ? 'Aktif' : 'Devre Dışı'} • {p.isAdmin ? <span className="text-amber-400 font-bold">Admin Yetkili</span> : 'Normal Personel'} • {new Date(p.createdAt).toLocaleDateString('tr-TR')}
                         </div>
                       </div>
                     </div>
@@ -265,11 +289,19 @@ export default function AdminPersonnelPage() {
                         <Edit3 className="w-4 h-4" />
                       </button>
                       <button
+                        onClick={() => handleToggleAdmin(p.id, p.isAdmin)}
+                        className={`p-1.5 rounded-lg transition-colors ${p.isAdmin ? 'text-amber-400 hover:bg-amber-500/10' : 'text-slate-500 hover:bg-slate-700'}`}
+                        title={p.isAdmin ? 'Admin Yetkisini Al' : 'Admin Yetkisi Ver'}
+                      >
+                        <span className="text-[10px] font-bold mr-1">Admin</span>
+                        {p.isAdmin ? <ToggleRight className="w-5 h-5 inline" /> : <ToggleLeft className="w-5 h-5 inline" />}
+                      </button>
+                      <button
                         onClick={() => handleToggleActive(p.id, p.isActive)}
                         className={`p-1.5 rounded-lg transition-colors ${p.isActive ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-red-400 hover:bg-red-500/10'}`}
                         title={p.isActive ? 'Devre Dışı Bırak' : 'Aktif Et'}
                       >
-                        {p.isActive ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
+                        {p.isActive ? <ToggleRight className="w-5 h-5 inline" /> : <ToggleLeft className="w-5 h-5 inline" />}
                       </button>
                     </div>
                   </>

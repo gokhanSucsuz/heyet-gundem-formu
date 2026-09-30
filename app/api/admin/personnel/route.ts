@@ -14,6 +14,7 @@ export async function GET() {
       id: p._id,
       name: p.name,
       isActive: p.isActive,
+      isAdmin: p.isAdmin || false,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
     }));
@@ -27,7 +28,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
-    const { name, password } = await req.json();
+    const { name, password, isAdmin } = await req.json();
 
     if (!name || !password) {
       return NextResponse.json({ error: 'İsim ve şifre gerekli' }, { status: 400 });
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
       _id: id,
       name,
       passwordHash,
+      isAdmin: isAdmin || false,
       isActive: true,
       createdBy: 'super-admin',
     });
@@ -102,7 +104,7 @@ export async function DELETE(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     await dbConnect();
-    const { id, name, password, isActive } = await req.json();
+    const { id, name, password, isActive, isAdmin } = await req.json();
 
     if (!id) {
       return NextResponse.json({ error: 'ID gerekli' }, { status: 400 });
@@ -111,6 +113,7 @@ export async function PUT(req: NextRequest) {
     const updates: any = {};
     if (name) updates.name = name;
     if (isActive !== undefined) updates.isActive = isActive;
+    if (isAdmin !== undefined) updates.isAdmin = isAdmin;
     if (password) {
       updates.passwordHash = await hashPassword(password);
     }

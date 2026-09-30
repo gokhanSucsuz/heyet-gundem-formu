@@ -386,6 +386,8 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
   );
 }
 
+import { usePersonnel } from '@/components/PersonnelProvider';
+
 export default function FormEditorPage() {
   const params = useParams();
   const id = params.id as string;
@@ -393,6 +395,9 @@ export default function FormEditorPage() {
   const allMembers = useLiveQuery(() => db.members.orderBy('order').toArray());
   const settings = useLiveQuery(() => db.settings.get('default'));
   
+  const { personnel } = usePersonnel();
+  const isAdmin = personnel?.isAdmin || false;
+
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
   const [localForm, setLocalForm] = useState<OfficialForm | null>(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -419,6 +424,7 @@ export default function FormEditorPage() {
       if (detail?.id === id) {
         setIsDirty(false);
         localStorage.removeItem(`draft_form_${id}`);
+        toast.success('Değişiklikler kaydedildi', { id: 'auto-save-toast', duration: 2000, position: 'top-center' });
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -476,7 +482,7 @@ export default function FormEditorPage() {
   };
 
   const updateForm = (updates: Partial<OfficialForm>) => {
-    if (isSaving) return;
+    if (isSaving || (localForm.isActive === false && !isAdmin)) return;
     const updated = { ...localForm, ...updates, updatedAt: Date.now() };
     setLocalForm(updated);
     setIsDirty(true);
@@ -894,6 +900,21 @@ export default function FormEditorPage() {
           )}
 
           <div className="flex-1 pb-20 w-full overflow-x-hidden" id="main-scroll-container">
+            {localForm.isActive === false && !isAdmin && (
+              <div className="w-full max-w-5xl mx-auto px-2 sm:px-4 mb-4 mt-2">
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 shadow-sm">
+                  <div className="text-amber-500 mt-0.5">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-amber-800 uppercase tracking-tight">Bu Form Pasif Durumda</h3>
+                    <p className="text-[11px] text-amber-700 mt-1 font-medium">
+                      Bu form geçmiş bir tarihe ait olduğu için pasife çekilmiştir. Admin yetkiniz olmadığı için üzerinde değişiklik yapamazsınız, sadece görüntüleyebilirsiniz.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             {activeTab === 'editor' ? (
               <div className="w-full max-w-5xl mx-auto space-y-8 px-2 sm:px-4">
                 {/* Metadata Section */}

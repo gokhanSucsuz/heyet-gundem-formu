@@ -57,6 +57,7 @@ export interface OfficialForm {
   decisionTime: string;
   isPostponed: boolean;
   isLocked?: boolean;
+  isActive?: boolean;
   headerTop: string;
   headerMiddle: string;
   headerBottom: string;
