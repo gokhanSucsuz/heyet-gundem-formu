@@ -2,19 +2,55 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FileText, Users, Settings, Menu, X, LogOut } from 'lucide-react';
+import { FileText, Users, Settings, Menu, X, LogOut, User } from 'lucide-react';
 import { useState } from 'react';
 import { Toaster } from 'sonner';
+import { usePersonnel } from '@/components/PersonnelProvider';
+import { db } from '@/lib/db';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { personnel, logout } = usePersonnel();
 
   const navItems = [
     { href: '/', label: 'Gündem ve Kararlar', icon: FileText },
     { href: '/members', label: 'Mütevelli Heyet Üyeleri', icon: Users },
     { href: '/settings', label: 'Genel Ayarlar', icon: Settings },
   ];
+
+  const handleLogout = async () => {
+    // Flush any pending saves before logout
+    try {
+      await db.forms.flushQueue();
+      await db.members.flushQueue();
+      await db.settings.flushQueue();
+    } catch { /* best effort */ }
+
+    await logout();
+  };
+
+  const handleGoogleLogout = async () => {
+    // Flush pending saves, then sign out from both personnel and Google
+    try {
+      await db.forms.flushQueue();
+      await db.members.flushQueue();
+      await db.settings.flushQueue();
+    } catch { /* best effort */ }
+
+    if (personnel) {
+      await fetch('/api/auth/personnel-logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personnelId: personnel.id,
+          personnelName: personnel.name,
+        }),
+      }).catch(() => {});
+    }
+
+    import('next-auth/react').then(({ signOut }) => signOut({ callbackUrl: '/login' }));
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-200 text-slate-800 font-sans">
@@ -27,6 +63,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Gündem Aracı</span>
           </div>
         </div>
+
+        {/* Personnel Info */}
+        {personnel && (
+          <div className="px-5 py-3 border-b border-slate-100 bg-blue-50/50">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-[10px] font-bold">
+                {personnel.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-bold text-slate-700 truncate">{personnel.name}</span>
+                <span className="text-[9px] text-slate-400 font-bold uppercase">Aktif Personel</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <nav className="flex-1 p-5 space-y-1.5 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
@@ -52,10 +104,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Kurumsal Çözüm</p>
             <p className="text-[11px] text-slate-600 leading-relaxed font-medium">Resmi yazışma ve kurul kararları yönetim sistemi.</p>
           </div>
+          {/* Personnel Switch */}
           <button 
-            onClick={() => {
-              import('next-auth/react').then(({ signOut }) => signOut({ callbackUrl: '/login' }));
-            }}
+            onClick={handleLogout}
+            className="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-xs font-bold uppercase tracking-tight text-amber-600 hover:bg-amber-50 hover:text-amber-700 w-full text-left"
+          >
+            <User className="w-5 h-5 text-amber-500" />
+            <span>Personel Değiştir</span>
+          </button>
+          {/* Full Logout */}
+          <button 
+            onClick={handleGoogleLogout}
             className="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-xs font-bold uppercase tracking-tight text-red-600 hover:bg-red-50 hover:text-red-700 w-full text-left"
           >
             <LogOut className="w-5 h-5 text-red-500" />
@@ -83,6 +142,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <X className="w-6 h-6 text-slate-400" />
           </button>
         </div>
+
+        {/* Mobile Personnel Info */}
+        {personnel && (
+          <div className="px-4 py-2 border-b border-slate-100 bg-blue-50/50">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-[9px] font-bold">
+                {personnel.name.charAt(0).toUpperCase()}
+              </div>
+              <span className="text-xs font-bold text-slate-700">{personnel.name}</span>
+            </div>
+          </div>
+        )}
+
         <nav className="p-4 space-y-2">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
@@ -103,10 +175,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           })}
           
           <button
-            onClick={() => {
-              import('next-auth/react').then(({ signOut }) => signOut({ callbackUrl: '/login' }));
-            }}
-            className="flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase text-red-600 hover:bg-red-50 w-full text-left mt-4"
+            onClick={handleLogout}
+            className="flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase text-amber-600 hover:bg-amber-50 w-full text-left mt-4"
+          >
+            <User className="w-5 h-5" />
+            <span>Personel Değiştir</span>
+          </button>
+
+          <button
+            onClick={handleGoogleLogout}
+            className="flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase text-red-600 hover:bg-red-50 w-full text-left"
           >
             <LogOut className="w-5 h-5" />
             <span>Çıkış Yap</span>

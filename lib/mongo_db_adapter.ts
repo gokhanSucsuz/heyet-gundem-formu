@@ -1,5 +1,6 @@
 
 
+
 // We'll move the interfaces to db_types.ts later or just keep them here
 export interface Member {
   id: string;
@@ -76,7 +77,26 @@ export interface Settings {
   layout?: any;
 }
 
+// Helper to get personnel headers from sessionStorage
+function getPersonnelHeaders(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const stored = sessionStorage.getItem('personnel');
+    if (stored) {
+      const p = JSON.parse(stored);
+      return {
+        'x-personnel-id': p.id || 'unknown',
+        'x-personnel-name': encodeURIComponent(p.name || 'Bilinmeyen'),
+      };
+    }
+  } catch { /* ignore */ }
+  return {};
+}
+
 class MongoTable<T extends { id: string }> {
+  private _saveQueue: Map<string, { data: T; timer: ReturnType<typeof setTimeout> }> = new Map();
+  private _saveDelay = 3000; // 3 seconds debounce
+
   constructor(private collection: string) {}
 
   async toArray(): Promise<T[]> {
@@ -108,7 +128,7 @@ class MongoTable<T extends { id: string }> {
   async add(data: T, silent = false): Promise<string> {
     await fetch(`/api/db/${this.collection}${silent ? '?silent=true' : ''}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getPersonnelHeaders() },
       body: JSON.stringify(data)
     });
     return data.id;
@@ -117,10 +137,63 @@ class MongoTable<T extends { id: string }> {
   async put(data: T, silent = false): Promise<string> {
     await fetch(`/api/db/${this.collection}${silent ? '?silent=true' : ''}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getPersonnelHeaders() },
       body: JSON.stringify(data)
     });
     return data.id;
+  }
+
+  // Debounced put — queues the save and waits for inactivity
+  queueSave(data: T, silent = false): void {
+    const id = data.id;
+
+    // Cancel existing timer for this ID
+    const existing = this._saveQueue.get(id);
+    if (existing) {
+      clearTimeout(existing.timer);
+    }
+
+    // Set new timer
+    const timer = setTimeout(async () => {
+      this._saveQueue.delete(id);
+      try {
+        await this.put(data, silent);
+        window.dispatchEvent(new CustomEvent(`db-save-success-${this.collection}`, { detail: { id } }));
+      } catch (e) {
+        console.error(`Queue save failed (${this.collection}/${id}):`, e);
+        // Retry once after 2s
+        setTimeout(() => this.put(data, silent).catch(() => {}), 2000);
+      }
+    }, this._saveDelay);
+
+    this._saveQueue.set(id, { data, timer });
+  }
+
+  // Flush all pending saves immediately (for beforeunload)
+  async flushQueue(): Promise<void> {
+    const entries = Array.from(this._saveQueue.entries());
+    this._saveQueue.clear();
+    for (const [, { data, timer }] of entries) {
+      clearTimeout(timer);
+      try {
+        await this.put(data, true);
+      } catch { /* best effort */ }
+    }
+  }
+
+  // Flush using sendBeacon (for beforeunload where fetch might not complete)
+  flushQueueBeacon(): void {
+    const entries = Array.from(this._saveQueue.entries());
+    this._saveQueue.clear();
+    for (const [, { data, timer }] of entries) {
+      clearTimeout(timer);
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      navigator.sendBeacon(`/api/db/${this.collection}?silent=true`, blob);
+    }
+  }
+
+  hasPendingSaves(): boolean {
+    return this._saveQueue.size > 0;
   }
 
   async update(id: string, changes: Partial<T>, silent = false): Promise<number> {
@@ -134,7 +207,17 @@ class MongoTable<T extends { id: string }> {
   }
 
   async delete(id: string, silent = false): Promise<void> {
-    await fetch(`/api/db/${this.collection}?id=${id}${silent ? '&silent=true' : ''}`, { method: 'DELETE' });
+    // Cancel any pending save for this ID
+    const pending = this._saveQueue.get(id);
+    if (pending) {
+      clearTimeout(pending.timer);
+      this._saveQueue.delete(id);
+    }
+
+    await fetch(`/api/db/${this.collection}?id=${id}${silent ? '&silent=true' : ''}`, {
+      method: 'DELETE',
+      headers: { ...getPersonnelHeaders() },
+    });
     window.dispatchEvent(new CustomEvent(`db-update-${this.collection}`));
   }
 

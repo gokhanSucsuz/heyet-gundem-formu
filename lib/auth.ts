@@ -1,6 +1,14 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
+const ALLOWED_EMAILS = [
+  "edirnesydv@gmail.com",
+  "gokhansucsuz@gmail.com",
+];
+
+export const SUPER_ADMIN_EMAIL = "gokhansucsuz@gmail.com";
+export const PERSONNEL_AUTH_EMAIL = "edirnesydv@gmail.com";
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -10,10 +18,19 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user }) {
-      if (user.email === "edirnesydv@gmail.com") {
-        return true;
+      return ALLOWED_EMAILS.includes(user.email || "");
+    },
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = user.email === SUPER_ADMIN_EMAIL ? "super-admin" : "personnel-auth";
       }
-      return false; // Sadece bu mail adresine izin ver
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        (session.user as any).role = token.role;
+      }
+      return session;
     },
   },
   pages: {

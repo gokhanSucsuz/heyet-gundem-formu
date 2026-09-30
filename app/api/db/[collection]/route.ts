@@ -2,12 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import { MemberModel, FormModel, SettingsModel } from '@/models/EncryptedModels';
 import { encryptData, decryptData } from '@/lib/encryption';
+import { createAuditLog } from '@/lib/audit';
 
 const models: any = {
   members: MemberModel,
   forms: FormModel,
   settings: SettingsModel
 };
+
+function getPersonnelFromHeaders(req: NextRequest) {
+  const personnelId = req.headers.get('x-personnel-id') || 'unknown';
+  const personnelName = req.headers.get('x-personnel-name') || 'Bilinmeyen';
+  return { personnelId, personnelName };
+}
 
 export async function GET(
   req: NextRequest,
@@ -38,6 +45,23 @@ export async function GET(
       } else {
         data = { ...(decrypted || {}), ...base };
       }
+
+      // Log page view if not a silent request
+      if (!searchParams.get('silent')) {
+        const { personnelId, personnelName } = getPersonnelFromHeaders(req);
+        if (personnelId !== 'unknown') {
+          await createAuditLog({
+            personnelId,
+            personnelName,
+            action: 'VIEW',
+            resource: collection as any,
+            resourceId: id,
+            details: `${collection} görüntülendi: ${id}`,
+            req,
+          });
+        }
+      }
+
       return NextResponse.json(data);
     }
 
@@ -81,14 +105,37 @@ export async function POST(
 
     const data = await req.json();
     const id = data.id || data._id;
+    const isSilent = req.nextUrl.searchParams.get('silent') === 'true';
     
+    // Check for conflicts (optimistic locking)
+    const existing = await model.findById(id);
+    let isNew = !existing;
+
     const payload = encryptData(data);
     
-    const doc = await model.findByIdAndUpdate(
+    await model.findByIdAndUpdate(
       id,
       { payload, updatedAt: new Date() },
       { upsert: true, new: true }
     );
+
+    // Audit log
+    if (!isSilent) {
+      const { personnelId, personnelName } = getPersonnelFromHeaders(req);
+      if (personnelId !== 'unknown') {
+        const previousValue = existing ? decryptData(existing.payload) : null;
+        await createAuditLog({
+          personnelId,
+          personnelName,
+          action: isNew ? 'CREATE' : 'UPDATE',
+          resource: collection as any,
+          resourceId: id,
+          details: `${collection} ${isNew ? 'oluşturuldu' : 'güncellendi'}: ${id}`,
+          previousValue,
+          req,
+        });
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
@@ -105,10 +152,32 @@ export async function DELETE(
     const { collection } = await params;
     const model = models[collection];
     const id = req.nextUrl.searchParams.get('id');
+    const isSilent = req.nextUrl.searchParams.get('silent') === 'true';
     
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+
+    // Get the document before deleting (for audit log)
+    const existing = await model.findById(id);
     
     await model.findByIdAndDelete(id);
+
+    // Audit log
+    if (!isSilent) {
+      const { personnelId, personnelName } = getPersonnelFromHeaders(req);
+      if (personnelId !== 'unknown') {
+        const previousValue = existing ? decryptData(existing.payload) : null;
+        await createAuditLog({
+          personnelId,
+          personnelName,
+          action: 'DELETE',
+          resource: collection as any,
+          resourceId: id,
+          details: `${collection} silindi: ${id}`,
+          previousValue,
+          req,
+        });
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

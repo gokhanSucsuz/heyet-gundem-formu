@@ -403,6 +403,34 @@ export default function FormEditorPage() {
   const printRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Auto-save flush on page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      db.forms.flushQueueBeacon();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        db.forms.flushQueueBeacon();
+      }
+    };
+    // Listen for successful queue saves
+    const handleSaveSuccess = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.id === id) {
+        setIsDirty(false);
+        localStorage.removeItem(`draft_form_${id}`);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('db-save-success-forms', handleSaveSuccess);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('db-save-success-forms', handleSaveSuccess);
+    };
+  }, [id]);
+
   useEffect(() => {
     if (form) {
       const draft = localStorage.getItem(`draft_form_${id}`);
@@ -453,6 +481,8 @@ export default function FormEditorPage() {
     setLocalForm(updated);
     setIsDirty(true);
     localStorage.setItem(`draft_form_${id}`, JSON.stringify(updated));
+    // Queue auto-save (debounced 3s)
+    db.forms.queueSave(updated);
   };
 
   const saveToCloud = async () => {
