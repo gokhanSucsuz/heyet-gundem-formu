@@ -583,7 +583,10 @@ export default function FormEditorPage() {
       };
 
       const ensureParagraph = (html: string) => {
-        const trimmed = html.trim();
+        let trimmed = html.trim();
+        // Remove trailing dots from the end of the paragraph, ignoring any closing HTML tags
+        trimmed = trimmed.replace(/\.+(?=(\s*<\/[^>]+>)*\s*$)/g, '');
+        
         if (!trimmed.startsWith('<p>') && !trimmed.startsWith('<h')) {
           return `<p>${trimmed}</p>`;
         }
