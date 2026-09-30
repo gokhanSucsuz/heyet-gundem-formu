@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import { PersonnelModel } from '@/models/Personnel';
-import { hashPassword } from '@/lib/encryption';
+import { hashPassword, encryptData, decryptData } from '@/lib/encryption';
 import { createAuditLog } from '@/lib/audit';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -17,6 +17,7 @@ export async function GET() {
       isAdmin: p.isAdmin || false,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
+      passwordPlain: p.encryptedPassword ? decryptData(p.encryptedPassword) : 'Gizli (Eski Şifre)',
     }));
     return NextResponse.json(list);
   } catch (error: any) {
@@ -40,11 +41,13 @@ export async function POST(req: NextRequest) {
 
     const id = uuidv4();
     const passwordHash = await hashPassword(password);
+    const encryptedPassword = encryptData(password);
 
     await PersonnelModel.create({
       _id: id,
       name,
       passwordHash,
+      encryptedPassword,
       isAdmin: isAdmin || false,
       isActive: true,
       createdBy: 'super-admin',
@@ -116,6 +119,7 @@ export async function PUT(req: NextRequest) {
     if (isAdmin !== undefined) updates.isAdmin = isAdmin;
     if (password) {
       updates.passwordHash = await hashPassword(password);
+      updates.encryptedPassword = encryptData(password);
     }
 
     await PersonnelModel.findByIdAndUpdate(id, updates);

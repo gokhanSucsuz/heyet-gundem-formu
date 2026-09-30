@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FileText, Users, Settings, Menu, X, LogOut, User } from 'lucide-react';
+import { FileText, Users, Settings, Menu, X, LogOut, User, Key } from 'lucide-react';
 import { useState } from 'react';
 import { Toaster } from 'sonner';
 import { usePersonnel } from '@/components/PersonnelProvider';
@@ -174,6 +174,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             );
           })}
           
+          <Link
+            href="/profile"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase text-slate-600 hover:bg-slate-100 w-full text-left mt-4"
+          >
+            <Key className="w-5 h-5" />
+            <span>Şifremi Değiştir</span>
+          </Link>
           <button
             onClick={handleLogout}
             className="flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase text-amber-600 hover:bg-amber-50 w-full text-left mt-4"
