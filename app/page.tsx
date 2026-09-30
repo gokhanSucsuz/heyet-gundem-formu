@@ -116,24 +116,31 @@ export default function FormsPage() {
 
   const duplicateForm = async (formToCopy: any, e: React.MouseEvent) => {
     e.preventDefault();
-    const newId = uuidv4();
-    const newForm = {
-      ...formToCopy,
-      id: newId,
-      title: formToCopy.title ? `${formToCopy.title} (Kopya)` : 'Kopya Form',
-      isTemplate: false,
-      isLocked: false,
-      isPostponed: false,
-      isActive: true,
-      decisionNo: '',
-      decisionDate: new Date().toISOString().split('T')[0],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      signatureSnapshots: []
-    };
-    await db.forms.add(newForm);
-    toast.success('Form kopyalandı.');
-    router.push(`/forms/${newId}`);
+    setConfirmModal({
+      isOpen: true,
+      message: 'Bu formun bir kopyasını oluşturmak istediğinize emin misiniz?',
+      onConfirm: async () => {
+        const newId = uuidv4();
+        const newForm = {
+          ...formToCopy,
+          id: newId,
+          title: formToCopy.title ? `${formToCopy.title} (Kopya)` : 'Kopya Form',
+          isTemplate: false,
+          isLocked: false,
+          isPostponed: false,
+          isActive: true,
+          decisionNo: '',
+          decisionDate: new Date().toISOString().split('T')[0],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          signatureSnapshots: []
+        };
+        await db.forms.add(newForm);
+        toast.success('Form kopyalandı.');
+        setConfirmModal({ ...confirmModal, isOpen: false });
+        router.push(`/forms/${newId}`);
+      }
+    });
   };
 
   const toggleActiveStatus = async (form: any, e: React.MouseEvent) => {
@@ -142,8 +149,16 @@ export default function FormsPage() {
     if (!isAdmin) return;
     
     const newStatus = form.isActive === false ? true : false;
-    await db.forms.update(form.id, { isActive: newStatus });
-    toast.success(`Form ${newStatus ? 'aktif' : 'pasif'} duruma getirildi.`);
+    
+    setConfirmModal({
+      isOpen: true,
+      message: `Bu formu ${newStatus ? 'aktif' : 'pasif'} duruma getirmek istediğinize emin misiniz?`,
+      onConfirm: async () => {
+        await db.forms.update(form.id, { isActive: newStatus });
+        toast.success(`Form ${newStatus ? 'aktif' : 'pasif'} duruma getirildi.`);
+        setConfirmModal({ ...confirmModal, isOpen: false });
+      }
+    });
   };
 
   const toggleTemplateStatus = async (form: any, e: React.MouseEvent) => {
@@ -151,18 +166,27 @@ export default function FormsPage() {
     e.stopPropagation();
     if (!isAdmin) return;
     
-    if (form.isTemplate) {
-      await db.forms.update(form.id, { isTemplate: false });
-      toast.success('Şablon iptal edildi.');
-    } else {
-      // Unset all other templates first
-      const others = forms?.filter(f => f.isTemplate && f.id !== form.id) || [];
-      for (const o of others) {
-        await db.forms.update(o.id, { isTemplate: false });
+    setConfirmModal({
+      isOpen: true,
+      message: form.isTemplate 
+        ? 'Bu formun şablon özelliğini iptal etmek istediğinize emin misiniz?' 
+        : 'Bu formu sistem şablonu olarak belirlemek istediğinize emin misiniz? (Diğer şablonlar iptal edilir)',
+      onConfirm: async () => {
+        if (form.isTemplate) {
+          await db.forms.update(form.id, { isTemplate: false });
+          toast.success('Şablon iptal edildi.');
+        } else {
+          // Unset all other templates first
+          const others = forms?.filter(f => f.isTemplate && f.id !== form.id) || [];
+          for (const o of others) {
+            await db.forms.update(o.id, { isTemplate: false });
+          }
+          await db.forms.update(form.id, { isTemplate: true });
+          toast.success('Form sistem şablonu olarak belirlendi.');
+        }
+        setConfirmModal({ ...confirmModal, isOpen: false });
       }
-      await db.forms.update(form.id, { isTemplate: true });
-      toast.success('Form sistem şablonu olarak belirlendi.');
-    }
+    });
   };
 
   const filteredForms = forms?.filter(f => isAdmin || !f.isTemplate) || [];
