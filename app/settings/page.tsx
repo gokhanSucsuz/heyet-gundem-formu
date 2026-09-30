@@ -110,16 +110,16 @@ export default function SettingsPage() {
   return (
     <AppLayout>
       <div className={`max-w-5xl mx-auto transition-opacity ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 uppercase">Ayarlar</h1>
-            <p className="text-slate-500 mt-1 text-sm font-medium">Logo, sayfa düzeni ve mizanpaj ayarları.</p>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 uppercase">Ayarlar</h1>
+            <p className="text-slate-500 mt-1 text-xs sm:text-sm font-medium">Logo, sayfa düzeni ve mizanpaj ayarları.</p>
           </div>
           {isDirty && (
             <button
               onClick={saveToCloud}
               disabled={isSaving}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 uppercase tracking-wider disabled:opacity-50"
+              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 uppercase tracking-wider disabled:opacity-50"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               AYARLARI BULUTA KAYDET

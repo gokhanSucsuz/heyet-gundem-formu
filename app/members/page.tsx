@@ -103,17 +103,17 @@ export default function MembersPage() {
   return (
     <AppLayout>
       <div className={`max-w-5xl mx-auto transition-opacity ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 uppercase">Mütevelli Heyet Üyeleri</h1>
-            <p className="text-slate-500 mt-1 text-sm font-medium">Toplantı gündemlerini imzalayacak heyet üyeleri ve vekil bilgileri.</p>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 uppercase">Mütevelli Heyet Üyeleri</h1>
+            <p className="text-slate-500 mt-1 text-xs sm:text-sm font-medium">Toplantı gündemlerini imzalayacak heyet üyeleri ve vekil bilgileri.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
             {isDirty && (
               <button
                 onClick={saveToCloud}
                 disabled={isSaving}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 uppercase tracking-wider disabled:opacity-50"
+                className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 uppercase tracking-wider disabled:opacity-50"
               >
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 ÜYELERİ BULUTA KAYDET
@@ -122,7 +122,7 @@ export default function MembersPage() {
             <button
               onClick={addMember}
               disabled={isSaving}
-              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 uppercase tracking-wider"
+              className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 uppercase tracking-wider"
             >
               <Plus className="w-5 h-5" />
               YENİ ÜYE EKLE
@@ -131,7 +131,7 @@ export default function MembersPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-300 overflow-hidden">
-          <div className="grid grid-cols-12 gap-4 p-4 border-b border-slate-200 bg-slate-50/50 text-slate-500 uppercase font-bold text-[10px] tracking-widest">
+          <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-slate-200 bg-slate-50/50 text-slate-500 uppercase font-bold text-[10px] tracking-widest">
             <div className="col-span-1"></div>
             <div className="col-span-3">Üye Adı Soyadı / Ünvanı</div>
             <div className="col-span-1 flex justify-center">Vekil?</div>
@@ -144,24 +144,37 @@ export default function MembersPage() {
               <div className="p-12 text-center text-slate-400 font-medium italic">Henüz üye eklenmemiş. "Yeni Üye Ekle" butonu ile başlayın.</div>
             ) : (
               localMembers.map((member) => (
-                <div key={member.id} className="grid grid-cols-12 gap-4 p-5 items-center group hover:bg-blue-50/30 transition-colors">
-                  <div className="col-span-1 flex flex-col items-center justify-center gap-1">
+                <div key={member.id} className="flex flex-col md:grid md:grid-cols-12 gap-4 p-5 items-start md:items-center group hover:bg-blue-50/30 transition-colors relative">
+                  
+                  {/* Satır İçi Silme Butonu (Mobil) */}
+                  <div className="absolute right-3 top-3 md:hidden">
+                    <button
+                      disabled={isSaving}
+                      onClick={() => deleteMember(member.id)}
+                      className="text-slate-300 hover:text-red-500 transition-all p-2 rounded-xl hover:bg-red-50 disabled:opacity-30"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-row md:flex-col items-center justify-center gap-2 md:col-span-1 w-full md:w-auto bg-slate-50 md:bg-transparent py-1 rounded">
                     <button 
                       onClick={() => moveMember(localMembers.indexOf(member), 'up')}
                       disabled={localMembers.indexOf(member) === 0}
-                      className="text-slate-300 hover:text-blue-500 disabled:opacity-0"
+                      className="text-slate-300 hover:text-blue-500 disabled:opacity-20"
                     >
-                      <ArrowUp className="w-4 h-4" />
+                      <ArrowUp className="w-4 h-4 md:w-4 md:h-4" />
                     </button>
                     <button 
                       onClick={() => moveMember(localMembers.indexOf(member), 'down')}
                       disabled={localMembers.indexOf(member) === localMembers.length - 1}
-                      className="text-slate-300 hover:text-blue-500 disabled:opacity-0"
+                      className="text-slate-300 hover:text-blue-500 disabled:opacity-20"
                     >
-                      <ArrowDown className="w-4 h-4" />
+                      <ArrowDown className="w-4 h-4 md:w-4 md:h-4" />
                     </button>
                   </div>
-                  <div className="col-span-3 space-y-2 relative">
+
+                  <div className="w-full md:col-span-3 space-y-2 relative mt-2 md:mt-0">
                     {localMembers.indexOf(member) === 0 && (
                       <div className="absolute -top-6 left-0 flex items-center gap-1 bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider animate-pulse">
                         <Award className="w-3 h-3" /> Heyet Başkanı / Vali
@@ -184,7 +197,9 @@ export default function MembersPage() {
                       placeholder="Ünvan (Örn: Üye, Vali Yrd.)"
                     />
                   </div>
-                  <div className="col-span-1 flex justify-center">
+
+                  <div className="w-full md:col-span-1 flex items-center md:justify-center border-t border-slate-100 md:border-t-0 pt-3 md:pt-0">
+                    <span className="md:hidden text-xs font-bold text-slate-400 uppercase mr-3">Vekil Katılımı:</span>
                     <button
                       disabled={isSaving}
                       onClick={() => updateMember(member.id, { isProxy: !member.isProxy })}
@@ -196,9 +211,10 @@ export default function MembersPage() {
                       <UserPlus className="w-5 h-5" />
                     </button>
                   </div>
-                  <div className="col-span-5">
+
+                  <div className="w-full md:col-span-5">
                     {member.isProxy ? (
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-orange-50/30 p-3 md:p-0 rounded-lg md:bg-transparent">
                         <input
                           type="text"
                           disabled={isSaving}
@@ -222,7 +238,8 @@ export default function MembersPage() {
                       </div>
                     )}
                   </div>
-                  <div className="col-span-2 flex justify-end">
+
+                  <div className="hidden md:flex md:col-span-2 justify-end">
                     <button
                       disabled={isSaving}
                       onClick={() => deleteMember(member.id)}

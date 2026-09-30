@@ -140,21 +140,21 @@ export default function AdminPersonnelPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
       <header className="border-b border-slate-700/50 bg-slate-900/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.push('/admin')} className="text-slate-400 hover:text-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button onClick={() => router.push('/admin')} className="text-slate-400 hover:text-white shrink-0">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div>
-              <h1 className="font-bold text-sm uppercase tracking-tight">Personel Yönetimi</h1>
-              <span className="text-[10px] text-slate-500 font-bold">{personnel.length} personel kayıtlı</span>
+            <div className="flex flex-col min-w-0">
+              <h1 className="font-bold text-xs sm:text-sm uppercase tracking-tight truncate">Personel Yönetimi</h1>
+              <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold whitespace-nowrap">{personnel.length} personel</span>
             </div>
           </div>
           <button
             onClick={() => { setShowAddForm(true); setError(''); }}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors"
+            className="flex items-center gap-1.5 sm:gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-colors shrink-0"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
             Personel Ekle
           </button>
         </div>
@@ -236,9 +236,9 @@ export default function AdminPersonnelPage() {
             </div>
           ) : (
             personnel.map(p => (
-              <div key={p.id} className={`bg-slate-800/50 border rounded-xl p-4 flex items-center justify-between ${p.isActive ? 'border-slate-700' : 'border-red-500/30 opacity-60'}`}>
+              <div key={p.id} className={`bg-slate-800/50 border rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${p.isActive ? 'border-slate-700' : 'border-red-500/30 opacity-60'}`}>
                 {editingId === p.id ? (
-                  <div className="flex-1 flex items-center gap-3">
+                  <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
                     <input
                       type="text"
                       value={editName}
@@ -280,7 +280,7 @@ export default function AdminPersonnelPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t border-slate-700 sm:border-0 justify-end">
                       <button
                         onClick={() => { setEditingId(p.id); setEditName(p.name); setEditPassword(''); }}
                         className="text-slate-400 hover:text-blue-400 p-1.5 rounded-lg hover:bg-blue-500/10 transition-colors"

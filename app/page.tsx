@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { db, useLiveQuery } from '@/lib/db';
 import { AppLayout } from '@/components/Layout';
 import Link from 'next/link';
-import { Plus, FileText, Calendar, Trash2, Lock, Copy } from 'lucide-react';
+import { Plus, FileText, Calendar, Trash2, Lock, Copy, Bookmark } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -36,7 +36,30 @@ export default function FormsPage() {
       }
     }
 
+    const templateForm = forms?.find(f => f.isTemplate === true);
     const id = uuidv4();
+
+    if (templateForm) {
+      const newForm = {
+        ...templateForm,
+        id,
+        isTemplate: false,
+        title: 'Yeni Karar Formu',
+        isLocked: false,
+        isPostponed: false,
+        isActive: true,
+        decisionNo: '',
+        decisionDate: today,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        signatureSnapshots: []
+      };
+      await db.forms.add(newForm);
+      toast.success('Şablon kullanılarak yeni form oluşturuldu.');
+      router.push(`/forms/${id}`);
+      return;
+    }
+
     await db.forms.add({
       id,
       title: 'Yeni Karar Formu',
@@ -98,6 +121,7 @@ export default function FormsPage() {
       ...formToCopy,
       id: newId,
       title: formToCopy.title ? `${formToCopy.title} (Kopya)` : 'Kopya Form',
+      isTemplate: false,
       isLocked: false,
       isPostponed: false,
       isActive: true,
@@ -108,7 +132,7 @@ export default function FormsPage() {
       signatureSnapshots: []
     };
     await db.forms.add(newForm);
-    toast.success('Şablon oluşturuldu. Yeni forma yönlendiriliyorsunuz...');
+    toast.success('Form kopyalandı.');
     router.push(`/forms/${newId}`);
   };
 
@@ -122,17 +146,38 @@ export default function FormsPage() {
     toast.success(`Form ${newStatus ? 'aktif' : 'pasif'} duruma getirildi.`);
   };
 
+  const toggleTemplateStatus = async (form: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isAdmin) return;
+    
+    if (form.isTemplate) {
+      await db.forms.update(form.id, { isTemplate: false });
+      toast.success('Şablon iptal edildi.');
+    } else {
+      // Unset all other templates first
+      const others = forms?.filter(f => f.isTemplate && f.id !== form.id) || [];
+      for (const o of others) {
+        await db.forms.update(o.id, { isTemplate: false });
+      }
+      await db.forms.update(form.id, { isTemplate: true });
+      toast.success('Form sistem şablonu olarak belirlendi.');
+    }
+  };
+
+  const filteredForms = forms?.filter(f => isAdmin || !f.isTemplate) || [];
+
   return (
     <AppLayout>
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 uppercase">Karar Formları</h1>
-          <p className="text-slate-500 mt-1 text-sm font-medium">Hazırlanmış karar ve gündem formları</p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 uppercase">Karar Formları</h1>
+          <p className="text-slate-500 mt-1 text-xs sm:text-sm font-medium">Hazırlanmış karar ve gündem formları</p>
         </div>
         {isAdmin && (
           <button
             onClick={createForm}
-            className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded text-sm font-bold transition-colors shadow-sm"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto bg-blue-700 hover:bg-blue-800 text-white px-4 py-2.5 rounded text-sm font-bold transition-colors shadow-sm"
           >
             <Plus className="w-5 h-5" />
             YENİ FORM OLUŞTUR
@@ -142,7 +187,7 @@ export default function FormsPage() {
 
       {!forms ? (
         <div className="text-center py-12 text-slate-500">Yükleniyor...</div>
-      ) : forms.length === 0 ? (
+      ) : filteredForms.length === 0 ? (
         <div className="text-center py-20 bg-white rounded border border-slate-300 shadow-sm">
           <div className="w-16 h-16 bg-blue-50 text-blue-700 rounded flex items-center justify-center mx-auto mb-4">
             <FileText className="w-8 h-8" />
@@ -161,7 +206,7 @@ export default function FormsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {forms.map(form => {
+          {filteredForms.map(form => {
             const isLocked = form.isLocked;
             const isPostponed = form.isPostponed;
             const isPassive = form.isActive === false;
@@ -192,6 +237,13 @@ export default function FormsPage() {
               badgeText = 'PASİF';
               badgeColor = 'bg-slate-100 text-slate-600 border-slate-300';
             }
+            if (form.isTemplate) {
+              iconBgColor = 'bg-fuchsia-50';
+              iconTextColor = 'text-fuchsia-700';
+              borderColor = 'border-fuchsia-300 hover:border-fuchsia-500 border-2 border-dashed shadow-sm';
+              badgeText = 'ŞABLON FORM';
+              badgeColor = 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200';
+            }
 
             return (
             <Link key={form.id || (form as any)._id} href={`/forms/${form.id}`} className="block group">
@@ -220,10 +272,19 @@ export default function FormsPage() {
                         duplicateForm(form, e);
                       }}
                       className="text-slate-400 hover:text-blue-600 p-1.5 bg-white hover:bg-blue-50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Şablon Olarak Kopyala"
+                      title="Kopyala"
                     >
                       <Copy className="w-4 h-4" />
                     </button>
+                    {isAdmin && (
+                      <button 
+                        onClick={(e) => toggleTemplateStatus(form, e)}
+                        className={`text-slate-400 hover:text-fuchsia-600 p-1.5 bg-white hover:bg-fuchsia-50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity ${form.isTemplate ? 'text-fuchsia-600 opacity-100' : ''}`}
+                        title={form.isTemplate ? "Şablonu İptal Et" : "Şablon Olarak Belirle"}
+                      >
+                        <Bookmark className="w-4 h-4" />
+                      </button>
+                    )}
                     {isAdmin && (
                       <button 
                         onClick={(e) => toggleActiveStatus(form, e)}

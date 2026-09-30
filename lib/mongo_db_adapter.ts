@@ -58,6 +58,7 @@ export interface OfficialForm {
   isPostponed: boolean;
   isLocked?: boolean;
   isActive?: boolean;
+  isTemplate?: boolean;
   headerTop: string;
   headerMiddle: string;
   headerBottom: string;

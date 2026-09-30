@@ -737,7 +737,7 @@ export default function FormEditorPage() {
     <AppLayout>
       <div className="flex flex-col h-full h-[calc(100vh-2rem)]">
         {/* Header Actions */}
-        <div className="flex items-center justify-between bg-white p-3 rounded border border-slate-300 shadow-sm mb-6 shrink-0 z-10 relative">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 bg-white p-3 rounded border border-slate-300 shadow-sm mb-6 shrink-0 z-10 relative">
           <div className="flex items-center gap-3 w-full overflow-hidden">
             <Link href="/" className="text-slate-400 hover:text-slate-600 shrink-0">
               <ArrowLeft className="w-5 h-5" />
@@ -755,18 +755,8 @@ export default function FormEditorPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 ml-4">
-            {isDirty && (
-              <button 
-                onClick={saveToCloud}
-                disabled={isSaving}
-                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded font-bold text-[10px] shadow-sm transition-all active:scale-95 disabled:opacity-50"
-              >
-                {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                <span className="hidden sm:inline">BULUTA KAYDET</span>
-              </button>
-            )}
-            
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0 sm:ml-4 border-t border-slate-100 sm:border-0 pt-2 sm:pt-0">
+
             <div className="bg-slate-100 p-1 rounded flex shrink-0">
               <button
                 onClick={() => setActiveTab('editor')}
@@ -852,7 +842,7 @@ export default function FormEditorPage() {
         {/* Content Area with Sidebar */}
         <div className="flex-1 flex gap-8 overflow-hidden relative">
           {activeTab === 'editor' && (
-            <div className="fixed right-2 lg:right-6 top-1/2 -translate-y-1/2 z-40 print:hidden transition-all duration-300">
+            <div className="fixed right-2 lg:right-6 top-1/2 -translate-y-1/2 z-40 print:hidden flex flex-col gap-3 items-end">
               <div className="flex flex-col gap-1 lg:gap-2 p-1.5 lg:p-2 bg-white/60 hover:bg-white/95 backdrop-blur-md rounded-xl lg:rounded-3xl border border-slate-200 shadow-xl lg:shadow-2xl opacity-60 hover:opacity-100 transition-all duration-500 group/panel w-10 lg:w-12 hover:w-44 overflow-hidden">
                 <div className="flex items-center gap-2 px-2 mb-1 opacity-0 group-hover/panel:opacity-100 transition-opacity duration-300 min-max">
                   <div className="w-1.5 h-4 bg-blue-600 rounded-full"></div>
@@ -896,6 +886,22 @@ export default function FormEditorPage() {
                   })}
                 </nav>
               </div>
+              
+              <button 
+                onClick={saveToCloud}
+                disabled={isSaving || !isDirty}
+                className={`flex items-center justify-center gap-2 w-10 lg:w-12 h-10 lg:h-12 hover:w-32 rounded-xl lg:rounded-2xl font-bold text-[11px] shadow-xl transition-all duration-300 overflow-hidden group/savebtn uppercase tracking-widest ${
+                  isDirty && !isSaving 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105' 
+                    : 'bg-white/80 backdrop-blur-md text-slate-400 border border-slate-200 cursor-not-allowed opacity-70'
+                }`}
+                title="Kaydet"
+              >
+                <div className="flex items-center gap-2 min-w-max px-3">
+                  {isSaving ? <Loader2 className="w-4 h-4 lg:w-5 lg:h-5 shrink-0 animate-spin" /> : <Save className="w-4 h-4 lg:w-5 lg:h-5 shrink-0" />}
+                  <span className="opacity-0 group-hover/savebtn:opacity-100 transition-opacity duration-300 whitespace-nowrap">KAYDET</span>
+                </div>
+              </button>
             </div>
           )}
 
@@ -1097,9 +1103,9 @@ export default function FormEditorPage() {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
                                 transition={{ duration: 0.2 }}
-                                className="relative group border border-slate-100 hover:border-blue-200 p-4 rounded bg-slate-50 transition-colors shadow-sm"
+                                className="relative group border border-slate-100 hover:border-blue-200 p-4 pt-12 md:pt-4 rounded bg-slate-50 transition-colors shadow-sm"
                               >
-                                <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 flex gap-2 transition-opacity z-10">
+                                <div className="absolute right-2 top-2 opacity-100 md:opacity-0 group-hover:opacity-100 flex flex-wrap gap-2 transition-opacity z-10 justify-end w-full md:w-auto px-2 md:px-0">
                                   {!isSub && (
                                     <button 
                                       disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
