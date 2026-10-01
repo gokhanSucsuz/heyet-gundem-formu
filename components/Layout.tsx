@@ -15,8 +15,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: '/', label: 'Gündem ve Kararlar', icon: FileText },
-    { href: '/members', label: 'Mütevelli Heyet Üyeleri', icon: Users },
-    { href: '/settings', label: 'Genel Ayarlar', icon: Settings },
+    ...(personnel?.isAdmin ? [
+      { href: '/members', label: 'Mütevelli Heyet Üyeleri', icon: Users },
+      { href: '/settings', label: 'Genel Ayarlar', icon: Settings },
+    ] : []),
   ];
 
   const handleLogout = async () => {
@@ -104,6 +106,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Kurumsal Çözüm</p>
             <p className="text-[11px] text-slate-600 leading-relaxed font-medium">Resmi yazışma ve kurul kararları yönetim sistemi.</p>
           </div>
+          {/* Change Password */}
+          <Link 
+            href="/profile"
+            className="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-xs font-bold uppercase tracking-tight text-slate-600 hover:bg-slate-100 hover:text-slate-900 w-full text-left"
+          >
+            <Key className="w-5 h-5 text-slate-500" />
+            <span>Şifremi Değiştir</span>
+          </Link>
           {/* Personnel Switch */}
           <button 
             onClick={handleLogout}

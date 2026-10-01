@@ -3,10 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { db, useLiveQuery } from '@/lib/db';
 import { AppLayout } from '@/components/Layout';
+import { usePersonnel } from '@/components/PersonnelProvider';
 import { ImagePlus, Trash2, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SettingsPage() {
+  const { personnel } = usePersonnel();
   const settings = useLiveQuery(() => db.settings.get('default'));
   const [localSettings, setLocalSettings] = useState<any>(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -105,7 +107,15 @@ export default function SettingsPage() {
     }
   };
 
-  if (!localSettings) return <div className="p-8 text-center text-slate-500 italic uppercase font-bold">Yükleniyor...</div>;
+  if (!localSettings || !personnel) return <div className="p-8 text-center text-slate-500 italic uppercase font-bold">Yükleniyor...</div>;
+
+  if (!personnel.isAdmin) {
+    return (
+      <AppLayout>
+        <div className="p-8 text-center text-red-500 font-bold uppercase tracking-widest mt-20 bg-white rounded-xl shadow-sm max-w-md mx-auto border border-red-100">Yetkisiz Erişim. Yalnızca yöneticiler bu sayfayı görüntüleyebilir.</div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>

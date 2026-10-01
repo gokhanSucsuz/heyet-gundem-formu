@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { db, useLiveQuery, Member } from '@/lib/db';
 import { AppLayout } from '@/components/Layout';
+import { usePersonnel } from '@/components/PersonnelProvider';
 import { v4 as uuidv4 } from 'uuid';
 import { Plus, Trash2, GripVertical, UserCheck, UserPlus, Save, Loader2, ArrowUp, ArrowDown, Award } from 'lucide-react';
 import { DebouncedInput } from '@/components/DebouncedInput';
@@ -10,6 +11,7 @@ import { toast } from 'sonner';
 import { ConfirmModal } from '@/components/ConfirmModal';
 
 export default function MembersPage() {
+  const { personnel } = usePersonnel();
   const members = useLiveQuery(() => db.members.orderBy('order').toArray());
   const [localMembers, setLocalMembers] = useState<Member[]>([]);
   const [isDirty, setIsDirty] = useState(false);
@@ -98,7 +100,15 @@ export default function MembersPage() {
     }
   };
 
-  if (!localMembers) return <div className="p-8 text-center font-bold text-slate-500">Yükleniyor...</div>;
+  if (!localMembers || !personnel) return <div className="p-8 text-center font-bold text-slate-500">Yükleniyor...</div>;
+
+  if (!personnel.isAdmin) {
+    return (
+      <AppLayout>
+        <div className="p-8 text-center text-red-500 font-bold uppercase tracking-widest mt-20 bg-white rounded-xl shadow-sm max-w-md mx-auto border border-red-100">Yetkisiz Erişim. Yalnızca yöneticiler bu sayfayı görüntüleyebilir.</div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
