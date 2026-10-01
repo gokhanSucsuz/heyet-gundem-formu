@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import { PersonnelModel } from '@/models/Personnel';
-import { hashPassword, verifyPassword } from '@/lib/encryption';
+import { hashPassword, verifyPassword, encryptData } from '@/lib/encryption';
 import { createAuditLog } from '@/lib/audit';
 
 export async function POST(req: NextRequest) {
@@ -43,7 +43,9 @@ export async function POST(req: NextRequest) {
     }
 
     const newHash = await hashPassword(newPassword);
+    const newEncrypted = encryptData(newPassword);
     personnel.passwordHash = newHash;
+    personnel.encryptedPassword = newEncrypted;
     await personnel.save();
 
     await createAuditLog({

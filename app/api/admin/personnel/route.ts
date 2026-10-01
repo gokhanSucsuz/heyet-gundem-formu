@@ -5,10 +5,29 @@ import { hashPassword, encryptData, decryptData } from '@/lib/encryption';
 import { createAuditLog } from '@/lib/audit';
 import { v4 as uuidv4 } from 'uuid';
 
-// GET — list all personnel (admin only)
-export async function GET() {
+// GET — list all personnel (admin only) or single personnel if id is provided
+export async function GET(req: NextRequest) {
   try {
     await dbConnect();
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (id) {
+      const p = await PersonnelModel.findById(id);
+      if (!p) {
+        return NextResponse.json({ error: 'Personel bulunamadı' }, { status: 404 });
+      }
+      return NextResponse.json({
+        id: p._id,
+        name: p.name,
+        isActive: p.isActive,
+        isAdmin: p.isAdmin || false,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+        passwordPlain: p.encryptedPassword ? decryptData(p.encryptedPassword) : 'Gizli (Eski Şifre)',
+      });
+    }
+
     const personnel = await PersonnelModel.find({}).sort({ createdAt: -1 });
     const list = personnel.map((p: any) => ({
       id: p._id,

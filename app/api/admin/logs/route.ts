@@ -19,7 +19,12 @@ export async function GET(req: NextRequest) {
 
     const query: any = {};
 
-    if (personnelId) query.personnelId = personnelId;
+    if (personnelId) {
+      query.$or = [
+        { personnelId: personnelId },
+        { resourceId: personnelId }
+      ];
+    }
     if (action) query.action = action;
     if (resource) query.resource = resource;
     if (startDate || endDate) {

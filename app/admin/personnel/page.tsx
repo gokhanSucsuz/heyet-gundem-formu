@@ -282,6 +282,13 @@ export default function AdminPersonnelPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t border-slate-700 sm:border-0 justify-end">
                       <button
+                        onClick={() => router.push(`/admin/personnel/${p.id}`)}
+                        className="text-slate-400 hover:text-emerald-400 p-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors"
+                        title="İncele (Loglar & Şifre)"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => { setEditingId(p.id); setEditName(p.name); setEditPassword(''); }}
                         className="text-slate-400 hover:text-blue-400 p-1.5 rounded-lg hover:bg-blue-500/10 transition-colors"
                         title="Düzenle"
