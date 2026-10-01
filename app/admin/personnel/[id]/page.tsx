@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, Key, Calendar, Activity, Shield, Trash2, Edit3, ShieldAlert, FileText, User } from 'lucide-react';
 
@@ -23,8 +23,13 @@ interface LogEntry {
   timestamp: string;
 }
 
-export default function PersonnelDetailPage({ params }: { params: { id: string } }) {
+export default function PersonnelDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  
+  // Unwrap params in next 15+ 
+  const unwrappedParams = use(params);
+  const pId = unwrappedParams.id;
+
   const [personnel, setPersonnel] = useState<PersonnelDetail | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,9 +39,6 @@ export default function PersonnelDetailPage({ params }: { params: { id: string }
       router.push('/admin');
       return;
     }
-    
-    // Unwrap params in next 15+ (just use directly here assuming it's available)
-    const pId = params.id;
 
     const fetchData = async () => {
       try {
@@ -62,7 +64,7 @@ export default function PersonnelDetailPage({ params }: { params: { id: string }
     };
 
     fetchData();
-  }, [params.id, router]);
+  }, [pId, router]);
 
   if (loading) {
     return (
