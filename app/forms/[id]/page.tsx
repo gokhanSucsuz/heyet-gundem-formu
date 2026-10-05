@@ -896,17 +896,17 @@ export default function FormEditorPage() {
               <button 
                 onClick={saveToCloud}
                 disabled={isSaving || !isDirty}
-                className={`flex items-center justify-center gap-2 w-10 lg:w-12 h-10 lg:h-12 hover:w-32 rounded-xl lg:rounded-2xl font-bold text-[11px] shadow-xl transition-all duration-300 overflow-hidden group/savebtn uppercase tracking-widest ${
+                className={`relative flex items-center w-10 lg:w-12 h-10 lg:h-12 hover:w-28 lg:hover:w-32 rounded-xl lg:rounded-2xl font-bold text-[11px] shadow-xl transition-all duration-300 overflow-hidden group/savebtn uppercase tracking-widest ${
                   isDirty && !isSaving 
                     ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105' 
                     : 'bg-white/80 backdrop-blur-md text-slate-400 border border-slate-200 cursor-not-allowed opacity-70'
                 }`}
                 title="Kaydet"
               >
-                <div className="flex items-center gap-2 min-w-max px-3">
-                  {isSaving ? <Loader2 className="w-4 h-4 lg:w-5 lg:h-5 shrink-0 animate-spin" /> : <Save className="w-4 h-4 lg:w-5 lg:h-5 shrink-0" />}
-                  <span className="opacity-0 group-hover/savebtn:opacity-100 transition-opacity duration-300 whitespace-nowrap">KAYDET</span>
+                <div className="absolute left-0 w-10 lg:w-12 h-10 lg:h-12 flex items-center justify-center shrink-0">
+                  {isSaving ? <Loader2 className="w-4 h-4 lg:w-5 lg:h-5 animate-spin" /> : <Save className="w-4 h-4 lg:w-5 lg:h-5" />}
                 </div>
+                <span className="absolute left-9 lg:left-11 opacity-0 group-hover/savebtn:opacity-100 transition-opacity duration-300 whitespace-nowrap">KAYDET</span>
               </button>
             </div>
           )}
