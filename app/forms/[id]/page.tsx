@@ -769,15 +769,17 @@ export default function FormEditorPage() {
                 <Edit3 className="w-3.5 h-3.5" />
                 <span className="hidden sm:block">DÜZENLE</span>
               </button>
-              <button
-                onClick={() => setActiveTab('preview')}
-                className={`px-3 py-1.5 text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 ${
-                  activeTab === 'preview' ? 'bg-white text-blue-600 shadow-sm rounded' : 'text-slate-500 hover:bg-slate-200'
-                }`}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span className="hidden sm:block">ÖNİZLE</span>
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setActiveTab('preview')}
+                  className={`px-3 py-1.5 text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 ${
+                    activeTab === 'preview' ? 'bg-white text-blue-600 shadow-sm rounded' : 'text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span className="hidden sm:block">ÖNİZLE</span>
+                </button>
+              )}
             </div>
 
             {activeTab === 'preview' && (
@@ -853,10 +855,12 @@ export default function FormEditorPage() {
                 <nav className="flex flex-col gap-1 lg:gap-1.5">
                   {[
                     { id: 'top', label: 'En Üste', icon: ArrowUp },
-                    { id: 'header', label: 'Başlık', icon: FileText },
+                    ...(isAdmin ? [{ id: 'header', label: 'Başlık', icon: FileText }] : []),
                     { id: 'items', label: 'Gündem', icon: ListOrdered },
-                    { id: 'footer', label: 'Not', icon: MessageSquare },
-                    { id: 'signatures', label: 'İmzalar', icon: Users },
+                    ...(isAdmin ? [
+                      { id: 'footer', label: 'Not', icon: MessageSquare },
+                      { id: 'signatures', label: 'İmzalar', icon: Users }
+                    ] : []),
                     { id: 'bottom', label: 'En Alta', icon: ArrowDown },
                   ].map(section => {
                     const Icon = section.icon;
@@ -926,6 +930,7 @@ export default function FormEditorPage() {
             {activeTab === 'editor' ? (
               <div className="w-full max-w-5xl mx-auto space-y-8 px-2 sm:px-4">
                 {/* Metadata Section */}
+                {isAdmin && (
                 <div id="header" className={`bg-white p-5 rounded border border-slate-300 shadow-sm space-y-4 scroll-mt-20 transition-opacity ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                     <h3 className="text-xs font-bold text-slate-500 uppercase">Resmi Kayıt Bilgileri</h3>
@@ -1041,6 +1046,7 @@ export default function FormEditorPage() {
                     />
                   </div>
                 </div>
+                )}
 
                 {/* Items Section */}
                 <div id="items" className={`bg-white p-5 rounded border border-slate-300 shadow-sm space-y-4 scroll-mt-20 transition-opacity ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -1426,6 +1432,7 @@ export default function FormEditorPage() {
                 </div>
 
                 {/* Footer Section */}
+                {isAdmin && (
                 <div id="footer" className={`bg-white p-5 rounded border border-slate-300 shadow-sm space-y-4 scroll-mt-20 transition-opacity ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
                   <h3 className="text-xs font-bold text-slate-500 uppercase border-b border-slate-100 pb-2">Karar Notu (Alt Açıklama)</h3>
                   <RichTextEditor 
@@ -1435,8 +1442,10 @@ export default function FormEditorPage() {
                     placeholder="Karar metnini buraya girin..."
                   />
                 </div>
+                )}
 
                 {/* Signatures Section */}
+                {isAdmin && (
                 <div id="signatures" className={`bg-white p-5 rounded border border-slate-300 shadow-sm space-y-4 scroll-mt-20 transition-opacity ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                     <h3 className="text-xs font-bold text-slate-500 uppercase">İmza Alanı Seçimi</h3>
@@ -1483,6 +1492,7 @@ export default function FormEditorPage() {
                     ))}
                   </div>
                 </div>
+                )}
               </div>
             ) : (
               <div className="w-full flex-1 overflow-auto preview-container">
