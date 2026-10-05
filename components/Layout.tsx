@@ -18,6 +18,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     ...(personnel?.isAdmin ? [
       { href: '/members', label: 'Mütevelli Heyet Üyeleri', icon: Users },
       { href: '/settings', label: 'Genel Ayarlar', icon: Settings },
+      { href: '/logs', label: 'Sistem Logları', icon: FileText },
     ] : []),
   ];
 
