@@ -93,6 +93,51 @@ export async function GET(
   }
 }
 
+function generateUpdateDetails(collection: string, id: string, oldData: any, newData: any): string {
+  if (!oldData) return `${collection} güncellendi: ${id}`;
+  
+  if (collection === 'forms') {
+    const changes: string[] = [];
+    
+    // Check title
+    if (oldData.title !== newData.title) {
+      changes.push(`Başlık: "${newData.title}"`);
+    }
+    
+    // Check items
+    const oldItems = oldData.items || [];
+    const newItems = newData.items || [];
+    
+    for (const newItem of newItems) {
+      const oldItem = oldItems.find((i: any) => i.id === newItem.id);
+      if (!oldItem) {
+        changes.push(`Yeni madde: "${(newItem.text || '').substring(0, 50)}"`);
+      } else if (oldItem.text !== newItem.text) {
+        changes.push(`Madde değişti: "${(newItem.text || '').substring(0, 100)}"`);
+      }
+    }
+    for (const oldItem of oldItems) {
+       const newItem = newItems.find((i: any) => i.id === oldItem.id);
+       if (!newItem) {
+         changes.push(`Madde silindi: "${(oldItem.text || '').substring(0, 50)}"`);
+       }
+    }
+
+    if (oldData.isLocked !== newData.isLocked) {
+      changes.push(newData.isLocked ? 'Form kilitlendi' : 'Form kilidi açıldı');
+    }
+
+    if (changes.length > 0) {
+      const diff = changes.join(' | ');
+      return diff.length > 300 ? diff.substring(0, 300) + '...' : diff;
+    }
+  } else if (collection === 'members') {
+    if (oldData.name !== newData.name) return `Üye ismi: "${newData.name}"`;
+  }
+  
+  return `${collection} güncellendi: ${id}`;
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ collection: string }> }
@@ -124,13 +169,19 @@ export async function POST(
       const { personnelId, personnelName } = getPersonnelFromHeaders(req);
       if (personnelId !== 'unknown') {
         const previousValue = existing ? decryptData(existing.payload) : null;
+        
+        let detailsText = `${collection} ${isNew ? 'oluşturuldu' : 'güncellendi'}: ${id}`;
+        if (!isNew && previousValue) {
+          detailsText = generateUpdateDetails(collection, id, previousValue, data);
+        }
+
         await createAuditLog({
           personnelId,
           personnelName,
           action: isNew ? 'CREATE' : 'UPDATE',
           resource: collection as any,
           resourceId: id,
-          details: `${collection} ${isNew ? 'oluşturuldu' : 'güncellendi'}: ${id}`,
+          details: detailsText,
           previousValue,
           req,
         });
