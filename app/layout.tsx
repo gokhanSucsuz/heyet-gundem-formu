@@ -13,11 +13,6 @@ export const metadata: Metadata = {
     icon: '/logo-sydv.jpg',
   },
 };
-console.log("!!! SIFRE_KURTARMA !!!", {
-  encryption: process.env.ENCRYPTION_KEY,
-  nextauth: process.env.NEXTAUTH_SECRET,
-  mongo: process.env.MONGODB_URI
-});
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

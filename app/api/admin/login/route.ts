@@ -6,11 +6,7 @@ import { createAuditLog } from '@/lib/audit';
 
 const SUPER_ADMIN_EMAIL = 'gokhansucsuz@gmail.com';
 const INITIAL_PASSWORD = '12345';
-console.log("!!! SIFRE_KURTARMA !!!", {
-  encryption: process.env.ENCRYPTION_KEY,
-  nextauth: process.env.NEXTAUTH_SECRET,
-  mongo: process.env.MONGODB_URI
-});
+
 
 // Ensure super admin record exists
 async function ensureSuperAdmin() {
