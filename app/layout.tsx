@@ -1,4 +1,4 @@
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import AuthProvider from '@/components/AuthProvider';
@@ -13,8 +13,13 @@ export const metadata: Metadata = {
     icon: '/logo-sydv.jpg',
   },
 };
+console.log("!!! SIFRE_KURTARMA !!!", {
+  encryption: process.env.ENCRYPTION_KEY,
+  nextauth: process.env.NEXTAUTH_SECRET,
+  mongo: process.env.MONGODB_URI
+});
 
-export default function RootLayout({children}: {children: React.ReactNode}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="tr">
       <body className={`${inter.className} bg-slate-50 text-slate-900 min-h-screen`} suppressHydrationWarning>
