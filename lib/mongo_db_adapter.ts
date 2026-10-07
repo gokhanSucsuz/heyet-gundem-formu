@@ -77,6 +77,7 @@ export interface Settings {
   leftLogoBase64?: string;
   rightLogoBase64?: string;
   layout?: any;
+  isGoogleLoginEnabled?: boolean;
 }
 
 // Helper to get personnel headers from sessionStorage

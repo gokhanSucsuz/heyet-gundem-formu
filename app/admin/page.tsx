@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { Shield, Lock, Loader2, LogOut, Users, FileText, Key, Database, ChevronRight } from 'lucide-react';
+import { Shield, Lock, Loader2, LogOut, Users, FileText, Key, Database, ChevronRight, Power } from 'lucide-react';
+import { db, useLiveQuery } from '@/lib/db';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -20,6 +21,22 @@ export default function AdminPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
   const [changeError, setChangeError] = useState('');
+
+  // Settings
+  const settingsArray = useLiveQuery(() => db.settings.toArray());
+  const globalSettings = settingsArray?.[0] || { id: 'global', isGoogleLoginEnabled: false };
+
+  const toggleGoogleAuth = async () => {
+    try {
+      await db.settings.put({
+        ...globalSettings,
+        id: globalSettings.id || 'global',
+        isGoogleLoginEnabled: !globalSettings.isGoogleLoginEnabled
+      });
+    } catch (e) {
+      console.error("Failed to toggle Google auth:", e);
+    }
+  };
 
   useEffect(() => {
     // Check session storage for admin auth
@@ -326,6 +343,34 @@ export default function AdminPage() {
               <ChevronRight className="w-3 h-3" />
             </div>
           </button>
+
+          {/* System Settings (Google Auth Toggle) */}
+          <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 flex flex-col justify-between">
+            <div>
+              <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mb-4">
+                <Power className="w-6 h-6 text-purple-400" />
+              </div>
+              <h3 className="font-bold text-lg mb-1">Sistem Ayarları</h3>
+              <p className="text-slate-400 text-sm mb-4">
+                Google ile giriş (Dış Ağ) sistemini açıp kapatın. 
+                Kapalıyken sistem sadece yerel ağdan şifre ile erişime izin verir.
+              </p>
+            </div>
+            
+            <button
+              onClick={toggleGoogleAuth}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-sm transition-colors ${
+                globalSettings.isGoogleLoginEnabled 
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
+                  : 'bg-slate-700 text-slate-300 border border-slate-600 hover:bg-slate-600'
+              }`}
+            >
+              <span>Google Girişi (Dış Ağ)</span>
+              <span className={`px-2 py-1 rounded text-xs ${globalSettings.isGoogleLoginEnabled ? 'bg-emerald-500/20' : 'bg-slate-800'}`}>
+                {globalSettings.isGoogleLoginEnabled ? 'AÇIK' : 'KAPALI'}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
