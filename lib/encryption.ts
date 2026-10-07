@@ -9,8 +9,8 @@ const PBKDF2_ITERATIONS = 100_000;
 const PBKDF2_DIGEST = 'sha512';
 
 // ---------- Key Derivation ----------
-const RAW_KEY = process.env.ENCRYPTION_KEY;
-const RAW_SALT = process.env.ENCRYPTION_SALT;
+const RAW_KEY = process.env.ENCRYPTION_KEY ? process.env.ENCRYPTION_KEY.replace(/^["']|["']$/g, '') : undefined;
+const RAW_SALT = process.env.ENCRYPTION_SALT ? process.env.ENCRYPTION_SALT.replace(/^["']|["']$/g, '') : undefined;
 
 if (!RAW_KEY) {
   console.warn('[Encryption] ENCRYPTION_KEY is missing — using build-time fallback');
