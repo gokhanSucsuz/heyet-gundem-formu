@@ -68,7 +68,13 @@ export async function GET(
     const docs = await model.find({});
     const decryptedDocs = docs.map((doc: any) => {
       const decrypted = decryptData(doc.payload);
-      const base = { id: doc._id.toString(), _id: doc._id };
+      const base = { 
+        id: doc._id.toString(), 
+        _id: doc._id,
+        _debug_payload_len: doc.payload ? doc.payload.length : 0,
+        _debug_decrypted: !!decrypted,
+        _debug_key_len: process.env.ENCRYPTION_KEY ? process.env.ENCRYPTION_KEY.length : 0
+      };
       
       if (collection === 'forms') {
         return { items: [], signatureMembers: [], headerTop: '', headerLine4: '', footerText: '', title: 'İsimsiz Form', layout: {}, ...decrypted, ...base };
@@ -88,7 +94,9 @@ export async function GET(
     return NextResponse.json({ 
       error: error.message, 
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-      hint: !process.env.MONGODB_URI ? 'MONGODB_URI is missing' : 'Check IP whitelist on MongoDB Atlas'
+      hint: !process.env.MONGODB_URI ? 'MONGODB_URI is missing' : 'Check IP whitelist on MongoDB Atlas',
+      keyLen: process.env.ENCRYPTION_KEY ? process.env.ENCRYPTION_KEY.length : 0,
+      saltLen: process.env.ENCRYPTION_SALT ? process.env.ENCRYPTION_SALT.length : 0
     }, { status: 500 });
   }
 }
