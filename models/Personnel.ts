@@ -11,4 +11,4 @@ const PersonnelSchema = new Schema({
 }, { timestamps: true });
 
 export const PersonnelModel =
-  mongoose.models.Personnel || mongoose.model('Personnel', PersonnelSchema);
+  mongoose.models.Personnel || mongoose.model('Personnel', PersonnelSchema, 'personels');
