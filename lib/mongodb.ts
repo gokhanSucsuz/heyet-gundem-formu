@@ -1,6 +1,10 @@
 import mongoose from 'mongoose';
 
-const URI = process.env.MONGODB_URI;
+let URI = process.env.MONGODB_URI;
+
+if (URI && URI.includes("mongodb-database-didtlqbqgz0lscyqtj7i8ohv")) {
+  URI = URI.replace("mongodb-database-didtlqbqgz0lscyqtj7i8ohv", "127.0.0.1");
+}
 
 if (!URI) {
   console.warn('MONGODB_URI is missing');
