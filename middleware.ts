@@ -1,5 +1,5 @@
 import { withAuth } from "next-auth/middleware";
-import { SUPER_ADMIN_EMAIL, PERSONNEL_AUTH_EMAIL } from "@/lib/auth";
+import { SUPER_ADMIN_EMAIL, PERSONNEL_AUTH_EMAIL } from "@/lib/constants";
 
 export default withAuth({
   callbacks: {

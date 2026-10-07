@@ -4,14 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import dbConnect from "@/lib/mongodb";
 import { SettingsModel } from "@/models/EncryptedModels";
 import { decryptData } from "@/lib/encryption";
-
-const ALLOWED_EMAILS = [
-  "edirnesydv@gmail.com",
-  "gokhansucsuz@gmail.com",
-];
-
-export const SUPER_ADMIN_EMAIL = "gokhansucsuz@gmail.com";
-export const PERSONNEL_AUTH_EMAIL = "edirnesydv@gmail.com";
+import { ALLOWED_EMAILS, SUPER_ADMIN_EMAIL, PERSONNEL_AUTH_EMAIL } from "@/lib/constants";
 
 export const authOptions: NextAuthOptions = {
   providers: [
