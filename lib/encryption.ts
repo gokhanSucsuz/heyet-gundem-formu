@@ -9,8 +9,13 @@ const PBKDF2_ITERATIONS = 100_000;
 const PBKDF2_DIGEST = 'sha512';
 
 // ---------- Key Derivation ----------
-const RAW_KEY = process.env.ENCRYPTION_KEY ? process.env.ENCRYPTION_KEY.replace(/^["']|["']$/g, '').trim() : undefined;
-const RAW_SALT = process.env.ENCRYPTION_SALT ? process.env.ENCRYPTION_SALT.replace(/^["']|["']$/g, '').trim() : undefined;
+const stripQuotes = (v?: string) => (v ? v.replace(/^["']|["']$/g, '').trim() : undefined);
+
+// ENCRYPTION_KEY_B64 takes precedence: keys containing non-ASCII / shell-special characters
+// (ş, ğ, ', %, &, ^ ...) are often mangled by Docker/Coolify env handling; base64 is transport-safe.
+const B64_KEY = stripQuotes(process.env.ENCRYPTION_KEY_B64);
+const RAW_KEY = B64_KEY ? Buffer.from(B64_KEY, 'base64').toString('utf8') : stripQuotes(process.env.ENCRYPTION_KEY);
+const RAW_SALT = stripQuotes(process.env.ENCRYPTION_SALT);
 
 if (!RAW_KEY) {
   console.warn('[Encryption] ENCRYPTION_KEY is missing — using build-time fallback');
@@ -21,6 +26,16 @@ if (!RAW_SALT) {
 
 const ENCRYPTION_KEY_STR = RAW_KEY || 'build-time-fallback-key-never-use-in-production';
 const ENCRYPTION_SALT_STR = RAW_SALT || 'build-time-fallback-salt';
+
+/** Non-reversible key info for diagnostics. Never exposes the key itself. */
+export function getKeyInfo() {
+  return {
+    source: B64_KEY ? 'ENCRYPTION_KEY_B64' : RAW_KEY ? 'ENCRYPTION_KEY' : 'fallback',
+    length: RAW_KEY ? RAW_KEY.length : 0,
+    fingerprint: crypto.createHash('sha256').update(ENCRYPTION_KEY_STR, 'utf8').digest('hex').slice(0, 12),
+    saltSet: !!RAW_SALT,
+  };
+}
 
 let _derivedKey: Buffer | null = null;
 

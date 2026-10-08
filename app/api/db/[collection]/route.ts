@@ -72,13 +72,7 @@ export async function GET(
     const docs = await model.find({});
     const decryptedDocs = docs.map((doc: any) => {
       const decrypted = decryptData(doc.payload);
-      const base = { 
-        id: doc._id.toString(), 
-        _id: doc._id,
-        _debug_payload_len: doc.payload ? doc.payload.length : 0,
-        _debug_decrypted: !!decrypted,
-        _debug_key_len: process.env.ENCRYPTION_KEY ? process.env.ENCRYPTION_KEY.length : 0
-      };
+      const base = { id: doc._id.toString(), _id: doc._id };
       
       if (collection === 'forms') {
         return { items: [], signatureMembers: [], headerTop: '', headerLine4: '', footerText: '', title: 'İsimsiz Form', layout: {}, ...decrypted, ...base };
