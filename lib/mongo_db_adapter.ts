@@ -104,7 +104,7 @@ class MongoTable<T extends { id: string }> {
 
   async toArray(): Promise<T[]> {
     try {
-      const res = await fetch(`/api/db/${this.collection}`);
+      const res = await fetch(`/api/db/${this.collection}`, { cache: 'no-store' });
       const data = await res.json();
       if (!res.ok || data.error) {
         console.error(`DB Error (${this.collection}):`, data?.error || res.statusText);
@@ -119,7 +119,7 @@ class MongoTable<T extends { id: string }> {
 
   async get(id: string): Promise<T | undefined> {
     try {
-      const res = await fetch(`/api/db/${this.collection}?id=${id}`);
+      const res = await fetch(`/api/db/${this.collection}?id=${id}`, { cache: 'no-store' });
       if (!res.ok) return undefined;
       const data = await res.json();
       return data?.error ? undefined : data;

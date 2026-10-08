@@ -62,7 +62,11 @@ export async function GET(
         }
       }
 
-      return NextResponse.json(data);
+      return NextResponse.json(data, {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0'
+        }
+      });
     }
 
     const docs = await model.find({});
@@ -88,7 +92,11 @@ export async function GET(
       return { ...(decrypted || {}), ...base };
     });
     
-    return NextResponse.json(decryptedDocs);
+    return NextResponse.json(decryptedDocs, {
+      headers: {
+        'Cache-Control': 'no-store, max-age=0'
+      }
+    });
   } catch (error: any) {
     console.error('API GET ERROR:', error);
     return NextResponse.json({ 
