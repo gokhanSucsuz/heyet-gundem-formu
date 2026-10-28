@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { db, useLiveQuery } from '@/lib/db';
 import { AppLayout } from '@/components/Layout';
 import { usePersonnel } from '@/components/PersonnelProvider';
-import { ImagePlus, Trash2, Save, Loader2 } from 'lucide-react';
+import { ImagePlus, Trash2, Save, Loader2, Scale } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SettingsPage() {
@@ -23,16 +23,17 @@ export default function SettingsPage() {
       if (draft) {
         try {
           const draftData = JSON.parse(draft);
-          setLocalSettings(draftData);
+          setLocalSettings({ ...draftData, muhtaclikSiniri: draftData.muhtaclikSiniri ?? settings.muhtaclikSiniri ?? 9358.50 });
           setIsDirty(true);
           return;
         } catch (e) { console.error('Settings draft error', e); }
       }
-      setLocalSettings(settings);
+      setLocalSettings({ ...settings, muhtaclikSiniri: settings.muhtaclikSiniri ?? 9358.50 });
     } else {
       // Initialize with requested defaults
       setLocalSettings({
         id: 'default',
+        muhtaclikSiniri: 9358.50,
         layout: {
           fontFamily: 'Verdana, sans-serif',
           fontSizeTitle: 12,
@@ -398,6 +399,47 @@ export default function SettingsPage() {
           </div>
           
           <div className="space-y-6">
+            {/* Muhtaclik Siniri Card */}
+            <div className="bg-white p-6 rounded border border-slate-300 shadow-sm space-y-4">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+                  <Scale className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Muhtaçlık Sınırı Kriteri</h4>
+                  <p className="text-[11px] text-slate-500 font-medium">Sosyal yardım kişi başı aylık gelir üst sınırı</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 uppercase block mb-1.5">
+                  Güncel Muhtaçlık Sınırı (Kişi Başı TL)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="w-full text-base font-bold text-slate-800 border border-slate-300 rounded-xl p-2.5 pr-12 focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50"
+                    value={localSettings.muhtaclikSiniri ?? 9358.50}
+                    onChange={(e) => updateSettings({ muhtaclikSiniri: parseFloat(e.target.value) || 0 })}
+                  />
+                  <span className="absolute right-3.5 top-3 text-xs font-bold text-slate-400">
+                    TL
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-medium">Formatlı Görünüm:</span>
+                  <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
+                    {(Number(localSettings.muhtaclikSiniri ?? 9358.50)).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 leading-relaxed font-medium">
+                💡 <strong>Nasıl Çalışır?</strong> Excel listesi içe aktarılırken kişi başına düşen aylık geliri bu tutarı aşanlar otomatik olarak listenin en altına taşınır, gelir hücresine <strong>&quot;MUHTAÇLIK SINIRI ÜZERİNDE&quot;</strong> yazılır ve koyu renk/kalın punto ile işaretlenir.
+              </div>
+            </div>
             <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 shadow-sm">
               <h4 className="text-xs font-bold text-blue-900 uppercase mb-3">Bilgi Paneli</h4>
               <p className="text-[11px] text-blue-700 leading-relaxed font-medium">

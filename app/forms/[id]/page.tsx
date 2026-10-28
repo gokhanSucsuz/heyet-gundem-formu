@@ -9,6 +9,7 @@ import { useReactToPrint } from 'react-to-print';
 import { toast } from 'sonner';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { WordImportModal } from '@/components/WordImportModal';
+import { ExcelTableImportModal, isOverLimitRow } from '@/components/ExcelTableImportModal';
 import { 
   Save, Printer, ArrowLeft, Plus, Trash2, 
   Table as TableIcon, CheckSquare, ListOrdered, Minus, Lock, Unlock,
@@ -102,21 +103,24 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
                 </tr>
               </thead>
               <tbody>
-                {item.table.rows.map((row, ri) => (
-                  <tr key={ri}>
-                    {row.map((cell, ci) => {
-                      const isSira = isSiraColumn(item.table!.columns[ci]);
-                      return (
-                        <td 
-                          key={ci} 
-                          className={`border border-black text-[10px] ${tablePad} ${isSira ? 'text-center font-bold' : ''}`}
-                        >
-                          {isSira ? (ri + 1) : cell}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                {item.table.rows.map((row, ri) => {
+                  const isOver = isOverLimitRow(row);
+                  return (
+                    <tr key={ri} className={isOver ? 'bg-slate-100 font-bold' : ''}>
+                      {row.map((cell, ci) => {
+                        const isSira = isSiraColumn(item.table!.columns[ci]);
+                        return (
+                          <td 
+                            key={ci} 
+                            className={`border border-black text-[10px] ${tablePad} ${isSira ? 'text-center font-bold' : ''} ${isOver ? 'font-bold bg-slate-100' : ''}`}
+                          >
+                            {isSira ? (ri + 1) : cell}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -415,6 +419,19 @@ export default function FormEditorPage() {
     isOpen: false,
     parsedItems: [],
     fileName: ''
+  });
+  const [excelImportState, setExcelImportState] = useState<{
+    isOpen: boolean;
+    itemId: string;
+    fileName: string;
+    rawColumns: string[];
+    rawRows: string[][];
+  }>({
+    isOpen: false,
+    itemId: '',
+    fileName: '',
+    rawColumns: [],
+    rawRows: []
   });
   const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -749,16 +766,29 @@ export default function FormEditorPage() {
         return paddedRow;
       });
 
-      updateItem(itemId, { 
-        table: { columns, rows } 
+      // Muhtaçlık kontrollü Excel İçe Aktarma Modalı açılır
+      setExcelImportState({
+        isOpen: true,
+        itemId,
+        fileName: file.name,
+        rawColumns: columns,
+        rawRows: rows
       });
-      toast.success('Excel tablosu başarıyla yüklendi.');
     } catch (err) {
       console.error(err);
       toast.error('Excel dosyası okunurken hata oluştu.');
     } finally {
       e.target.value = '';
     }
+  };
+
+  const handleConfirmExcelImport = (table: { columns: string[]; rows: string[][] }) => {
+    if (!excelImportState.itemId) return;
+    updateItem(excelImportState.itemId, { 
+      table: { columns: table.columns, rows: table.rows } 
+    });
+    toast.success(`Excel tablosu ${table.rows.length} satır ile başarıyla yüklendi.`);
+    setExcelImportState({ isOpen: false, itemId: '', fileName: '', rawColumns: [], rawRows: [] });
   };
 
   const addTableToItem = (itemId: string) => {
@@ -1419,39 +1449,54 @@ export default function FormEditorPage() {
                                               </button>
                                             </div>
                                             
-                                            {/* Rows */}
-                                            {itm.table.rows.map((row, rI) => (
-                                              <div key={rI} className="flex gap-2 items-center group/row">
-                                                <div className="w-8 shrink-0 text-center text-xs font-bold text-slate-400">{rI + 1}</div>
-                                                {row.map((cell, cI) => {
-                                                  const isSira = isSiraColumn(itm.table!.columns[cI]);
-                                                  return (
-                                                    <input 
-                                                      key={cI}
-                                                      readOnly={isSira || isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                      className={`${isSira ? 'w-20 flex-none' : 'flex-1 min-w-[120px]'} text-sm border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none ${isSira ? 'bg-slate-100 text-center text-slate-500 font-bold' : ''} disabled:opacity-50`}
-                                                      value={isSira ? (rI + 1).toString() : cell}
-                                                      onChange={(e) => {
-                                                        if (isSira) return;
-                                                        const newRows = [...itm.table!.rows];
-                                                        newRows[rI][cI] = e.target.value;
-                                                        updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
-                                                      }}
-                                                    />
-                                                  );
-                                                })}
-                                                <button 
-                                                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                  onClick={() => {
-                                                    const newRows = itm.table!.rows.filter((_, i) => i !== rI);
-                                                    updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
-                                                  }}
-                                                  className="shrink-0 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded w-[100px] text-xs font-bold text-center opacity-0 group-hover/row:opacity-100 transition-opacity disabled:opacity-0"
-                                                >
-                                                  Satırı Sil
-                                                </button>
-                                              </div>
-                                            ))}
+                                             {/* Rows */}
+                                             {itm.table.rows.map((row, rI) => {
+                                               const isOver = isOverLimitRow(row);
+                                               return (
+                                                 <div key={rI} className={`flex gap-2 items-center group/row p-1 rounded-lg transition-colors ${isOver ? 'bg-slate-100/90 border border-slate-300' : ''}`}>
+                                                   <div className={`w-8 shrink-0 text-center text-xs font-bold ${isOver ? 'text-slate-800' : 'text-slate-400'}`}>{rI + 1}</div>
+                                                   {row.map((cell, cI) => {
+                                                     const isSira = isSiraColumn(itm.table!.columns[cI]);
+                                                     const isCellLimitOver = typeof cell === 'string' && cell.toUpperCase().includes('MUHTAÇLIK SINIRI ÜZERİNDE');
+                                                     return (
+                                                       <input 
+                                                         key={cI}
+                                                         readOnly={isSira || isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                         className={`${isSira ? 'w-20 flex-none' : 'flex-1 min-w-[120px]'} text-sm border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none ${
+                                                           isSira ? 'bg-slate-100 text-center text-slate-500 font-bold' : ''
+                                                         } ${
+                                                           isOver ? 'font-bold border-slate-400 bg-white' : 'border-slate-300'
+                                                         } ${
+                                                           isCellLimitOver ? 'text-red-700 font-black bg-red-50/60 border-red-300' : ''
+                                                         } disabled:opacity-50`}
+                                                         value={isSira ? (rI + 1).toString() : cell}
+                                                         onChange={(e) => {
+                                                           if (isSira) return;
+                                                           const newRows = [...itm.table!.rows];
+                                                           newRows[rI][cI] = e.target.value;
+                                                           updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
+                                                         }}
+                                                       />
+                                                     );
+                                                   })}
+                                                   {isOver && (
+                                                     <span className="shrink-0 px-2 py-1 text-[10px] font-black uppercase tracking-wider bg-slate-800 text-white rounded shadow-xs">
+                                                       RED (SINIR ÜSTÜ)
+                                                     </span>
+                                                   )}
+                                                   <button 
+                                                     disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                     onClick={() => {
+                                                       const newRows = itm.table!.rows.filter((_, i) => i !== rI);
+                                                       updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
+                                                     }}
+                                                     className="shrink-0 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded w-[100px] text-xs font-bold text-center opacity-0 group-hover/row:opacity-100 transition-opacity disabled:opacity-0"
+                                                   >
+                                                     Satırı Sil
+                                                   </button>
+                                                 </div>
+                                               );
+                                             })}
                                             <div className="flex gap-2 items-center mt-2">
                                               <div className="w-8 shrink-0"></div>
                                               <button 
@@ -1949,6 +1994,16 @@ export default function FormEditorPage() {
         existingItems={localForm?.items || []}
         onConfirm={handleConfirmWordImport}
         fileName={wordImportState.fileName}
+      />
+
+      <ExcelTableImportModal
+        isOpen={excelImportState.isOpen}
+        onClose={() => setExcelImportState({ isOpen: false, itemId: '', fileName: '', rawColumns: [], rawRows: [] })}
+        fileName={excelImportState.fileName}
+        rawColumns={excelImportState.rawColumns}
+        rawRows={excelImportState.rawRows}
+        defaultMuhtaclikSiniri={settings?.muhtaclikSiniri || 9358.50}
+        onConfirm={handleConfirmExcelImport}
       />
 
       <ConfirmModal
