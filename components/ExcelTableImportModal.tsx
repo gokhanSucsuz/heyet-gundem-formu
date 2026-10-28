@@ -47,14 +47,101 @@ export function parseTurkishCurrency(val: any): number | null {
   return isNaN(num) ? null : num;
 }
 
-const isSiraColumn = (name: string) => {
-  const n = name.toLowerCase().trim();
+export const normalizeTr = (s: string) => (s || '').toLocaleLowerCase('tr').replace(/[\u0300-\u036f]/g, '').trim();
+
+export const isSiraColumn = (name: string) => {
+  const n = normalizeTr(name);
   return n === 'sıra' || n === 'sıra no' || n === 'sira' || n === 'sira no' || n === 'no' || n === 's.no';
 };
 
 export const isOverLimitRow = (row: string[]) => {
   return row.some(cell => typeof cell === 'string' && cell.toUpperCase().includes('MUHTAÇLIK SINIRI ÜZERİNDE'));
 };
+
+export const findIncomeColumnIndex = (columns: string[], rows?: string[][]): number => {
+  let idx = columns.findIndex(col => {
+    const c = normalizeTr(col);
+    return c.includes('gelir') || c.includes('aylık') || c.includes('aylik') || c.includes('kişi başı') || c.includes('kisi basi') || c.includes('ücret');
+  });
+  if (idx !== -1) return idx;
+
+  if (rows && rows.length > 0) {
+    for (let c = 0; c < columns.length; c++) {
+      if (rows.some(r => typeof r[c] === 'string' && r[c].toUpperCase().includes('MUHTAÇLIK SINIRI ÜZERİNDE'))) {
+        return c;
+      }
+    }
+  }
+
+  return -1;
+};
+
+export function sortAndProcessTableByIncome(
+  columns: string[],
+  rows: string[][],
+  muhtaclikLimit: number,
+  specifiedIncomeColIdx?: number
+): { columns: string[]; rows: string[][]; incomeColIdx: number } {
+  const incomeColIdx = specifiedIncomeColIdx !== undefined && specifiedIncomeColIdx >= 0
+    ? specifiedIncomeColIdx
+    : findIncomeColumnIndex(columns, rows);
+
+  if (incomeColIdx < 0) {
+    return { columns, rows, incomeColIdx: -1 };
+  }
+
+  const decisionColIdx = columns.findIndex(col => {
+    const c = normalizeTr(col);
+    return c === 'karar' || c.includes('karar') || c.includes('heyet kararı');
+  });
+
+  const acceptedList: { row: string[]; incomeVal: number }[] = [];
+  const rejectedList: string[][] = [];
+
+  rows.forEach(row => {
+    const cloned = [...row];
+    while (cloned.length < columns.length) {
+      cloned.push('');
+    }
+
+    const cellVal = cloned[incomeColIdx];
+    const parsedVal = parseTurkishCurrency(cellVal);
+
+    if (
+      (typeof cellVal === 'string' && cellVal.toUpperCase().includes('MUHTAÇLIK SINIRI ÜZERİNDE')) ||
+      (parsedVal !== null && parsedVal > muhtaclikLimit)
+    ) {
+      cloned[incomeColIdx] = 'MUHTAÇLIK SINIRI ÜZERİNDE';
+      if (decisionColIdx >= 0) {
+        cloned[decisionColIdx] = ''; // Heyet için boş bırakılır
+      }
+      rejectedList.push(cloned);
+    } else {
+      if (decisionColIdx >= 0 && cloned[decisionColIdx] === undefined) {
+        cloned[decisionColIdx] = '';
+      }
+      acceptedList.push({
+        row: cloned,
+        incomeVal: parsedVal ?? 0
+      });
+    }
+  });
+
+  // Artan sırada (küçükten büyüğe) sırala
+  acceptedList.sort((a, b) => a.incomeVal - b.incomeVal);
+
+  const finalRows = [...acceptedList.map(item => item.row), ...rejectedList];
+
+  // SIRA NO sütununu 1..N olarak yeniden numaralandır
+  const siraIdx = columns.findIndex(col => isSiraColumn(col));
+  if (siraIdx >= 0) {
+    finalRows.forEach((r, idx) => {
+      r[siraIdx] = (idx + 1).toString();
+    });
+  }
+
+  return { columns, rows: finalRows, incomeColIdx };
+}
 
 interface ExcelTableImportModalProps {
   isOpen: boolean;
@@ -95,10 +182,7 @@ export function ExcelTableImportModal({
       setManageDecisionCol(true);
 
       // Gelir sütununu tespit et
-      let foundIdx = rawColumns.findIndex(col => {
-        const c = col.toLowerCase();
-        return c.includes('gelir') || c.includes('aylık') || c.includes('kişi başı') || c.includes('kisi basi');
-      });
+      let foundIdx = findIncomeColumnIndex(rawColumns, rawRows);
 
       if (foundIdx === -1) {
         // İkinci kontrol: satırlardaki değerlere bakarak parasal veri içeren sütunu bul
@@ -123,7 +207,7 @@ export function ExcelTableImportModal({
   // Karar sütunu var mı?
   const existingDecisionColIdx = useMemo(() => {
     return rawColumns.findIndex(col => {
-      const c = col.toLowerCase().trim();
+      const c = normalizeTr(col);
       return c === 'karar' || c.includes('karar') || c.includes('heyet kararı');
     });
   }, [rawColumns]);
@@ -144,7 +228,7 @@ export function ExcelTableImportModal({
       }
     }
 
-    const acceptedList: string[][] = [];
+    const acceptedList: { row: string[]; incomeVal: number }[] = [];
     const rejectedList: string[][] = [];
 
     rawRows.forEach((row) => {
@@ -166,6 +250,15 @@ export function ExcelTableImportModal({
           }
           rejectedList.push(clonedRow);
           return;
+        } else {
+          if (decisionColIdx >= 0 && manageDecisionCol) {
+            clonedRow[decisionColIdx] = ''; // Heyet için boş bırakılır
+          }
+          acceptedList.push({
+            row: clonedRow,
+            incomeVal: parsedIncome ?? 0
+          });
+          return;
         }
       }
 
@@ -173,11 +266,21 @@ export function ExcelTableImportModal({
       if (decisionColIdx >= 0 && manageDecisionCol) {
         clonedRow[decisionColIdx] = ''; // Heyet için boş bırakılır
       }
-      acceptedList.push(clonedRow);
+      acceptedList.push({
+        row: clonedRow,
+        incomeVal: 0
+      });
     });
 
+    // Artan sırada (küçükten büyüğe) sırala
+    if (enableLimitCheck) {
+      acceptedList.sort((a, b) => a.incomeVal - b.incomeVal);
+    }
+
     // Kabul edilenler üstte, reddedilenler (sınır üstü) altta
-    const allRows = enableLimitCheck ? [...acceptedList, ...rejectedList] : [...acceptedList];
+    const allRows = enableLimitCheck 
+      ? [...acceptedList.map(item => item.row), ...rejectedList] 
+      : acceptedList.map(item => item.row);
 
     // SIRA NO sütununu 1..N olarak yeniden numaralandır
     const siraIdx = finalColumns.findIndex(col => isSiraColumn(col));
@@ -253,7 +356,7 @@ export function ExcelTableImportModal({
                     Muhtaçlık Sınırı Kontrolü
                   </span>
                   <span className="text-[11px] text-slate-500 font-medium">
-                    Kişi başı aylık gelire göre otomatik kabul/red ayrımı
+                    Kişi başı aylık gelire göre artan sıralama ve kabul/red ayrımı
                   </span>
                 </div>
               </div>
@@ -314,7 +417,7 @@ export function ExcelTableImportModal({
                     ))}
                   </select>
                   <p className="text-[10px] text-slate-500 mt-1">
-                    Kontrol bu sütundaki parasal değerler incelenerek yapılacaktır.
+                    Gelire göre artan sıralama ve kontrol bu sütuna göre yapılacaktır.
                   </p>
                 </div>
               </div>
@@ -361,7 +464,7 @@ export function ExcelTableImportModal({
                     Uygun Olanlar: {processedData.acceptedCount} Kişi
                   </div>
                   <div className="text-[10px] text-emerald-700 font-medium">
-                    Listenin üst kısmında yer alacak
+                    Artan gelir sırasıyla listenin üstünde yer alacak
                   </div>
                 </div>
               </div>
@@ -390,7 +493,7 @@ export function ExcelTableImportModal({
                 Tablo Önizlemesi ({processedData.rows.length} Satır)
               </span>
               <span className="text-[10px] text-slate-400 font-normal lowercase">
-                (Koyu renkli ve kalın satırlar muhtaçlık sınırını aşanlardır)
+                (Gelire göre artan sıralı; koyu ve kalın satırlar muhtaçlık sınırını aşanlardır)
               </span>
             </div>
 
@@ -468,4 +571,3 @@ export function ExcelTableImportModal({
     </div>
   );
 }
-

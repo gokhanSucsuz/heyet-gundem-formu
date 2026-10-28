@@ -9,7 +9,7 @@ import { useReactToPrint } from 'react-to-print';
 import { toast } from 'sonner';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { WordImportModal } from '@/components/WordImportModal';
-import { ExcelTableImportModal, isOverLimitRow } from '@/components/ExcelTableImportModal';
+import { ExcelTableImportModal, isOverLimitRow, findIncomeColumnIndex, sortAndProcessTableByIncome, parseTurkishCurrency } from '@/components/ExcelTableImportModal';
 import { 
   Save, Printer, ArrowLeft, Plus, Trash2, 
   Table as TableIcon, CheckSquare, ListOrdered, Minus, Lock, Unlock,
@@ -791,6 +791,44 @@ export default function FormEditorPage() {
     setExcelImportState({ isOpen: false, itemId: '', fileName: '', rawColumns: [], rawRows: [] });
   };
 
+  const handleCellBlurOrSubmit = (
+    itemId: string,
+    table: NonNullable<FormItem['table']>,
+    rI: number,
+    cI: number,
+    val: string
+  ) => {
+    const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
+    const detectedIncomeCol = findIncomeColumnIndex(table.columns, table.rows);
+
+    const isTargetCol = detectedIncomeCol === cI || (
+      detectedIncomeCol === -1 && (
+        (typeof val === 'string' && val.toUpperCase().includes('MUHTAÇLIK SINIRI ÜZERİNDE')) ||
+        parseTurkishCurrency(val) !== null
+      )
+    );
+
+    if (isTargetCol) {
+      const activeColIdx = detectedIncomeCol !== -1 ? detectedIncomeCol : cI;
+      const latestRows = table.rows.map(r => [...r]);
+      if (latestRows[rI]) {
+        latestRows[rI][cI] = val;
+      }
+      const result = sortAndProcessTableByIncome(
+        table.columns,
+        latestRows,
+        muhtaclikLimit,
+        activeColIdx
+      );
+      updateItem(itemId, {
+        table: {
+          columns: result.columns,
+          rows: result.rows
+        }
+      });
+    }
+  };
+
   const addTableToItem = (itemId: string) => {
     updateItem(itemId, { 
       hasTable: true, 
@@ -1398,6 +1436,24 @@ export default function FormEditorPage() {
                                             >
                                               <FileDown className="w-3.5 h-3.5" /> Excel İndir
                                             </button>
+                                             <button 
+                                               type="button"
+                                               disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                               onClick={() => {
+                                                 const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
+                                                 const result = sortAndProcessTableByIncome(itm.table!.columns, itm.table!.rows, muhtaclikLimit);
+                                                 if (result.incomeColIdx === -1) {
+                                                   toast.warning('Gelir sütunu tespit edilemedi. Sütun başlığında "Gelir" veya "Aylık Gelir" yazdığından emin olun.');
+                                                   return;
+                                                 }
+                                                 updateItem(itm.id, { table: { columns: result.columns, rows: result.rows } });
+                                                 toast.success('Tablo gelire göre artan sırada ve muhtaçlık kriterine göre düzenlendi.');
+                                               }}
+                                               className="text-xs font-bold text-emerald-700 hover:text-emerald-800 uppercase flex items-center gap-1 hover:underline disabled:opacity-50"
+                                               title="Tabloyu gelire göre artan sırada dizer ve muhtaçlık sınırını aşanları en alta taşır"
+                                             >
+                                               <ArrowUpDown className="w-3.5 h-3.5" /> Gelire Göre Sırala
+                                             </button>
                                             <button disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)} onClick={() => removeTableFromItem(itm.id)} className="text-xs font-bold text-red-600 uppercase hover:underline disabled:opacity-50">Tabloyu Kaldır</button>
                                           </div>
                                         </div>
@@ -1470,11 +1526,28 @@ export default function FormEditorPage() {
                                                            isCellLimitOver ? 'text-red-700 font-black bg-red-50/60 border-red-300' : ''
                                                          } disabled:opacity-50`}
                                                          value={isSira ? (rI + 1).toString() : cell}
+                                                         onFocus={(e) => {
+                                                           if (isCellLimitOver) {
+                                                             e.target.select();
+                                                           }
+                                                         }}
                                                          onChange={(e) => {
                                                            if (isSira) return;
                                                            const newRows = [...itm.table!.rows];
+                                                           newRows[rI] = [...newRows[rI]];
                                                            newRows[rI][cI] = e.target.value;
                                                            updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
+                                                         }}
+                                                         onBlur={(e) => {
+                                                           if (!isSira) {
+                                                             handleCellBlurOrSubmit(itm.id, itm.table!, rI, cI, e.target.value);
+                                                           }
+                                                         }}
+                                                         onKeyDown={(e) => {
+                                                           if (e.key === 'Enter') {
+                                                             e.preventDefault();
+                                                             (e.target as HTMLInputElement).blur();
+                                                           }
                                                          }}
                                                        />
                                                      );
