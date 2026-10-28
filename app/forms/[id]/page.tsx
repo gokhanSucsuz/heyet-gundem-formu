@@ -12,7 +12,8 @@ import {
   Save, Printer, ArrowLeft, Plus, Trash2, 
   Table as TableIcon, CheckSquare, ListOrdered, Minus, Lock, Unlock,
   CheckCircle, ArrowRight, ArrowUp, ArrowDown, ChevronUp, ChevronDown,
-  FileText, MessageSquare, Users, Eye, Edit3, Loader2, FileUp, FileDown
+  FileText, MessageSquare, Users, Eye, Edit3, Loader2, FileUp, FileDown,
+  ArrowUpDown, GripVertical, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -405,6 +406,9 @@ export default function FormEditorPage() {
   const [sortOrder, setSortOrder] = useState<'none' | 'asc' | 'desc'>('none');
   const [genderPriority, setGenderPriority] = useState<'female' | 'male'>('female');
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, message: string, onConfirm: () => void}>({ isOpen: false, message: '', onConfirm: () => {} });
+  const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -647,8 +651,26 @@ export default function FormEditorPage() {
       Array.from(doc.body.children).forEach(processElement);
 
       if (newItems.length > 0) {
-        updateForm({ items: [...(localForm.items || []), ...newItems] });
-        toast.success(`${newItems.length} gündem maddesi başarıyla içe aktarıldı.`);
+        const totalParsed = newItems.length;
+        const promptResult = window.prompt(
+          `Word dosyasında toplam ${totalParsed} adet gündem maddesi bulundu.\n\nKaçıncı sıradaki maddeden başlayarak aktarmak istersiniz? (1 - ${totalParsed}):`,
+          "1"
+        );
+        if (promptResult === null) {
+          toast.info('İçe aktarma işlemi iptal edildi.');
+          return;
+        }
+        let startNum = parseInt(promptResult.trim(), 10);
+        if (isNaN(startNum) || startNum < 1) startNum = 1;
+        if (startNum > totalParsed) {
+          toast.error(`Başlangıç sırası 1 ile ${totalParsed} arasında olmalıdır.`);
+          return;
+        }
+        const startIndex = startNum - 1;
+        const itemsToAdd = newItems.slice(startIndex);
+
+        updateForm({ items: [...(localForm.items || []), ...itemsToAdd] });
+        toast.success(`Word belgesindeki ${startNum}. maddeden itibaren ${itemsToAdd.length} gündem maddesi başarıyla eklendi.`);
       } else {
         toast.error('Formda geçerli bir gündem maddesi (numaralı liste) bulunamadı.');
       }
@@ -1069,6 +1091,14 @@ export default function FormEditorPage() {
                         <FileUp className="w-3 h-3" /> Word'den Aktar
                       </button>
                       <button 
+                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed) || !localForm.items?.length}
+                        onClick={() => setIsReorderModalOpen(true)} 
+                        className="flex items-center gap-1 text-xs font-bold uppercase bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-300 px-3 py-1.5 rounded disabled:opacity-50 transition-colors"
+                        title="Maddeleri tek ekranda sürükle-bırak ile hızlıca sırala"
+                      >
+                        <ArrowUpDown className="w-3 h-3" /> Hızlı Sırala
+                      </button>
+                      <button 
                         disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
                         onClick={() => addItem('numbered')} 
                         className="flex items-center gap-1 text-xs font-bold uppercase bg-slate-100 text-slate-700 px-3 py-1.5 rounded hover:bg-slate-200 border border-slate-300 disabled:opacity-50"
@@ -1085,35 +1115,40 @@ export default function FormEditorPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6 mt-4">
+                  <div className="space-y-2.5 mt-3">
                     <AnimatePresence>
                       {localForm.items?.map((item, index) => {
                         const renderEditorItem = (itm: FormItem, idx: number, isSub: boolean = false, parentId: string | null = null, pIdx: number = 0) => {
+                          const maxLen = isSub && parentId 
+                            ? (localForm.items?.find(i => i.id === parentId)?.subItems?.length || 1) 
+                            : (localForm.items?.length || 1);
+
                           return (
                             <React.Fragment key={itm.id}>
                               {!isSub && (
-                                <div className="relative h-4 group/add">
-                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/add:opacity-100 transition-opacity">
-                                    <div className="h-px bg-blue-200 w-full"></div>
+                                <div className="relative h-2 group/add -my-1">
+                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/add:opacity-100 transition-opacity z-10">
+                                    <div className="h-px bg-blue-400 w-full"></div>
                                     <button 
                                       disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
                                       onClick={() => isSub && parentId ? addSubItemAt(parentId, idx) : addItemAt(idx)}
-                                      className="absolute bg-blue-600 text-white p-1 rounded-full shadow-lg hover:scale-110 transition-transform flex items-center gap-1 px-2 z-10"
+                                      className="absolute bg-blue-600 hover:bg-blue-700 text-white p-0.5 rounded-full shadow-md hover:scale-105 transition-all flex items-center gap-1 px-2 text-[10px] font-bold uppercase"
+                                      title="Araya Madde Ekle"
                                     >
-                                      <Plus className="w-3 h-3" />
-                                      <span className="text-[10px] font-bold uppercase">Araya Ekle</span>
+                                      <Plus className="w-2.5 h-2.5" />
+                                      <span>Araya Ekle</span>
                                     </button>
                                   </div>
                                 </div>
                               )}
                               <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
+                                initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                transition={{ duration: 0.2 }}
-                                className="relative group border border-slate-100 hover:border-blue-200 p-4 pt-12 md:pt-4 rounded bg-slate-50 transition-colors shadow-sm"
+                                exit={{ opacity: 0, scale: 0.98 }}
+                                transition={{ duration: 0.15 }}
+                                className="relative group border border-slate-200 hover:border-blue-300 p-2.5 md:p-3 rounded-lg bg-slate-50/70 hover:bg-white transition-all shadow-2xs"
                               >
-                                <div className="absolute right-2 top-2 opacity-100 md:opacity-0 group-hover:opacity-100 flex flex-wrap gap-2 transition-opacity z-10 justify-end w-full md:w-auto px-2 md:px-0">
+                                <div className="absolute right-2 top-2 opacity-90 md:opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-opacity z-10">
                                   {!isSub && (
                                     <button 
                                       disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
@@ -1122,7 +1157,7 @@ export default function FormEditorPage() {
                                         newSubItems.push({ id: uuidv4(), type: 'bullet', text: '' });
                                         updateItem(itm.id, { subItems: newSubItems });
                                       }} 
-                                      className="bg-white border border-slate-200 text-green-600 hover:bg-green-50 p-1.5 rounded shadow-sm flex items-center gap-1 text-xs font-bold disabled:opacity-50" 
+                                      className="bg-white border border-slate-200 hover:border-green-300 text-green-700 hover:bg-green-50 px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 shadow-2xs disabled:opacity-50" 
                                       title="Alt Madde Ekle"
                                     >
                                       <Plus className="w-3 h-3" /> Alt Madde
@@ -1132,10 +1167,10 @@ export default function FormEditorPage() {
                                     <button 
                                       disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
                                       onClick={() => addTableToItem(itm.id)} 
-                                      className="bg-white border border-slate-200 text-blue-600 hover:bg-blue-50 p-1.5 rounded shadow-sm disabled:opacity-50" 
+                                      className="bg-white border border-slate-200 hover:border-blue-300 text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 shadow-2xs disabled:opacity-50" 
                                       title="Tablo Ekle"
                                     >
-                                      <TableIcon className="w-4 h-4" />
+                                      <TableIcon className="w-3 h-3" /> Tablo
                                     </button>
                                   )}
                                   <button 
@@ -1151,32 +1186,67 @@ export default function FormEditorPage() {
                                         removeItem(itm.id)
                                       }
                                     }} 
-                                    className="bg-white border border-slate-200 text-red-600 hover:bg-red-50 p-1.5 rounded shadow-sm disabled:opacity-50" 
+                                    className="bg-white border border-slate-200 hover:border-red-300 text-red-600 hover:bg-red-50 p-1 rounded shadow-2xs disabled:opacity-50" 
                                     title="Maddeyi Sil"
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
-                                <div className="flex gap-3">
-                                  <div className="pt-2 font-bold text-slate-500 w-16 flex flex-col items-center gap-2 shrink-0">
+                                <div className="flex gap-2.5 items-start">
+                                  {/* Left: Number and Quick Move Controls */}
+                                  <div className="flex flex-col items-center shrink-0 w-10 pt-1">
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0 || isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                      onClick={() => moveItem(itm.id, idx - 1, parentId)}
+                                      className="p-0.5 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
+                                      title="Yukarı Taşı"
+                                    >
+                                      <ChevronUp className="w-3.5 h-3.5" />
+                                    </button>
                                     <input 
                                       type="number"
-                                      value={idx + 1}
+                                      defaultValue={idx + 1}
+                                      key={`itm-pos-${itm.id}-${idx}`}
                                       min={1}
-                                      max={isSub && parentId ? (localForm.items?.find(i => i.id === parentId)?.subItems?.length || 1) : (localForm.items?.length || 1)}
+                                      max={maxLen}
                                       disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                      onChange={(e) => {
-                                        const val = parseInt(e.target.value);
-                                        if (!isNaN(val)) moveItem(itm.id, val - 1, parentId);
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          const val = parseInt((e.target as HTMLInputElement).value, 10);
+                                          if (!isNaN(val) && val >= 1 && val <= maxLen && val !== idx + 1) {
+                                            moveItem(itm.id, val - 1, parentId);
+                                          }
+                                        }
                                       }}
-                                      className="w-12 text-center text-xs bg-white border border-slate-200 rounded p-1 outline-none focus:ring-1 focus:ring-blue-400"
-                                      title="Sıralamayı değiştir"
+                                      onBlur={(e) => {
+                                        const val = parseInt(e.target.value, 10);
+                                        if (!isNaN(val) && val >= 1 && val <= maxLen && val !== idx + 1) {
+                                          moveItem(itm.id, val - 1, parentId);
+                                        } else {
+                                          e.target.value = (idx + 1).toString();
+                                        }
+                                      }}
+                                      className="w-10 text-center text-xs font-bold bg-white border border-slate-200 rounded py-0.5 outline-none focus:ring-1 focus:ring-blue-400 shadow-2xs"
+                                      title="Sıralamayı değiştir (Enter ile onayla)"
                                     />
-                                    <span className="text-[10px] uppercase text-slate-400">{itm.type === 'numbered' ? (isSub ? 'Alt' : 'Madde') : '-'}</span>
+                                    <button
+                                      type="button"
+                                      disabled={idx === maxLen - 1 || isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                      onClick={() => moveItem(itm.id, idx + 1, parentId)}
+                                      className="p-0.5 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
+                                      title="Aşağı Taşı"
+                                    >
+                                      <ChevronDown className="w-3.5 h-3.5" />
+                                    </button>
+                                    <span className="text-[9px] uppercase tracking-wider text-slate-400 font-medium mt-0.5">
+                                      {itm.type === 'numbered' ? (isSub ? 'Alt' : 'Madde') : '-'}
+                                    </span>
                                   </div>
-                                  <div className="flex-1 space-y-4 min-w-0">
-                                    <div className="flex gap-4 items-start">
-                                      <div className="flex-1">
+
+                                  <div className="flex-1 space-y-2 min-w-0">
+                                    <div className="flex flex-col sm:flex-row gap-2 items-start">
+                                      <div className="flex-1 w-full min-w-0">
                                         <RichTextEditor 
                                           value={itm.text}
                                           disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
@@ -1194,9 +1264,8 @@ export default function FormEditorPage() {
                                           placeholder="Maddenin metnini girin..."
                                         />
                                       </div>
-                                      <div className="w-56 shrink-0 flex gap-2">
+                                      <div className="w-full sm:w-44 shrink-0 flex gap-1.5 self-start">
                                         <div className="flex-1">
-                                          <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Yaş</label>
                                           <input 
                                             type="text"
                                             value={itm.age || ''}
@@ -1213,11 +1282,10 @@ export default function FormEditorPage() {
                                                 updateItem(itm.id, { age: e.target.value });
                                               }
                                             }}
-                                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                            className="w-full text-xs border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-blue-500 outline-none bg-white"
                                           />
                                         </div>
                                         <div className="flex-1">
-                                          <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Cinsiyet</label>
                                           <select
                                             value={itm.gender || ''}
                                             disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
@@ -1233,9 +1301,9 @@ export default function FormEditorPage() {
                                                 updateItem(itm.id, { gender: gender || undefined });
                                               }
                                             }}
-                                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white h-[34px]"
+                                            className="w-full text-xs border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-blue-500 outline-none bg-white h-[31px]"
                                           >
-                                            <option value="">-</option>
+                                            <option value="">Cinsiyet</option>
                                             <option value="female">KADIN</option>
                                             <option value="male">ERKEK</option>
                                           </select>
@@ -1371,9 +1439,9 @@ export default function FormEditorPage() {
                                     )}
 
                                     {itm.subItems && itm.subItems.length > 0 && !isSub && (
-                                      <div className="ml-8 mt-4 space-y-4 border-l-2 border-slate-200 pl-4">
+                                      <div className="ml-5 mt-2 space-y-2 border-l-2 border-slate-200 pl-3">
                                         {itm.subItems.map((sItem, sIdx) => renderEditorItem(sItem as any, sIdx, true, itm.id, idx))}
-                                        <div className="flex justify-start">
+                                        <div className="flex justify-start pt-1">
                                           <button 
                                             disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
                                             onClick={() => {
@@ -1381,10 +1449,10 @@ export default function FormEditorPage() {
                                               newSubItems.push({ id: uuidv4(), type: 'bullet', text: '' });
                                               updateItem(itm.id, { subItems: newSubItems });
                                             }}
-                                            className="flex items-center gap-1.5 text-[10px] font-bold text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-lg transition-all border border-green-100 disabled:opacity-50"
+                                            className="flex items-center gap-1 text-[10px] font-bold text-green-700 hover:text-green-800 bg-green-50 hover:bg-green-100 px-2.5 py-1 rounded transition-colors border border-green-200 disabled:opacity-50"
                                           >
-                                            <Plus className="w-3.5 h-3.5" />
-                                            <span>SONA ALT MADDE EKLE</span>
+                                            <Plus className="w-3 h-3" />
+                                            <span>ALT MADDE EKLE</span>
                                           </button>
                                         </div>
                                       </div>
@@ -1633,6 +1701,214 @@ export default function FormEditorPage() {
         </div>
       )}
       
+      {/* Sürükle-Bırak Sıralama Modalı */}
+      {isReorderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <ArrowUpDown className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                    Gündem Maddeleri Sıralama Düzenleyici
+                    <span className="text-[11px] font-semibold bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full">
+                      {localForm.items?.length || 0} Madde
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Maddeleri sürükleyip bırakarak veya ok butonlarıyla sıralayabilirsiniz. Sıralama anında forma uygulanır.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsReorderModalOpen(false);
+                  setDraggedIndex(null);
+                  setDragOverIndex(null);
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+                title="Kapat"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body - Items List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-1.5 divide-y divide-slate-100">
+              {(!localForm.items || localForm.items.length === 0) ? (
+                <div className="text-center py-12 text-slate-400 text-xs italic">
+                  Sıralanacak madde bulunmuyor.
+                </div>
+              ) : (
+                localForm.items.map((item, index) => {
+                  const plainText = (item.text || '')
+                    .replace(/<[^>]*>/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                  const isDragging = draggedIndex === index;
+                  const isDragOver = dragOverIndex === index;
+
+                  return (
+                    <div
+                      key={item.id}
+                      draggable={!localForm.isLocked || localForm.isPostponed}
+                      onDragStart={(e) => {
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', index.toString());
+                        setDraggedIndex(index);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (dragOverIndex !== index) {
+                          setDragOverIndex(index);
+                        }
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverIndex === index) setDragOverIndex(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggedIndex !== null && draggedIndex !== index) {
+                          moveItem(localForm.items[draggedIndex].id, index);
+                        }
+                        setDraggedIndex(null);
+                        setDragOverIndex(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedIndex(null);
+                        setDragOverIndex(null);
+                      }}
+                      className={`flex items-center gap-2.5 p-2 rounded-lg border transition-all ${
+                        isDragging
+                          ? 'opacity-30 bg-slate-100 border-dashed border-slate-400 scale-[0.99]'
+                          : isDragOver
+                          ? 'border-blue-500 bg-blue-50/70 shadow-sm'
+                          : 'bg-white hover:bg-slate-50 border-slate-200'
+                      }`}
+                    >
+                      {/* Drag Handle */}
+                      <div
+                        className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-600 shrink-0"
+                        title="Sürüklemek için basılı tutun"
+                      >
+                        <GripVertical className="w-4 h-4" />
+                      </div>
+
+                      {/* Rank Input / Badge */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-[11px] font-bold text-slate-400">#</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={localForm.items.length}
+                          defaultValue={index + 1}
+                          key={`pos-${item.id}-${index}`}
+                          disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const val = parseInt((e.target as HTMLInputElement).value, 10);
+                              if (!isNaN(val) && val >= 1 && val <= localForm.items.length && val !== index + 1) {
+                                moveItem(item.id, val - 1);
+                              }
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (!isNaN(val) && val >= 1 && val <= localForm.items.length && val !== index + 1) {
+                              moveItem(item.id, val - 1);
+                            } else {
+                              e.target.value = (index + 1).toString();
+                            }
+                          }}
+                          className="w-11 text-center text-xs font-bold border border-slate-300 rounded px-1 py-1 focus:ring-1 focus:ring-blue-500 bg-white"
+                          title="Yeni sıra numarasını yazıp Enter'a basarak taşıyabilirsiniz"
+                        />
+                      </div>
+
+                      {/* Item Content Snippet */}
+                      <div className="flex-1 min-w-0 pr-2">
+                        <p className="text-xs text-slate-800 font-medium truncate">
+                          {plainText || <span className="text-slate-400 italic">(Metin girilmemiş)</span>}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-slate-400 uppercase font-semibold">
+                            {item.type === 'numbered' ? 'Numaralı' : 'Çizgili'}
+                          </span>
+                          {item.age && (
+                            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium">
+                              Yaş: {item.age}
+                            </span>
+                          )}
+                          {item.gender && (
+                            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium">
+                              {item.gender === 'female' ? 'Kadın' : 'Erkek'}
+                            </span>
+                          )}
+                          {item.hasTable && (
+                            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.2 rounded font-medium">
+                              Tablo
+                            </span>
+                          )}
+                          {item.subItems && item.subItems.length > 0 && (
+                            <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded font-medium">
+                              +{item.subItems.length} Alt Madde
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Up / Down Controls */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          disabled={index === 0 || isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                          onClick={() => moveItem(item.id, index - 1)}
+                          className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
+                          title="Yukarı Taşı"
+                        >
+                          <ChevronUp className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={index === localForm.items.length - 1 || isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                          onClick={() => moveItem(item.id, index + 1)}
+                          className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
+                          title="Aşağı Taşı"
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 bg-slate-50">
+              <span className="text-[11px] text-slate-500">
+                💡 İpucu: Maddeleri tutamaçtan sürükleyebilir, oklarla taşıyabilir veya doğrudan yeni numarasını yazabilirsiniz.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsReorderModalOpen(false);
+                  setDraggedIndex(null);
+                  setDragOverIndex(null);
+                }}
+                className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors shadow-2xs"
+              >
+                Tamamla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         message={confirmModal.message}
