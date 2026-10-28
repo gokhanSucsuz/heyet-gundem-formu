@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useReactToPrint } from 'react-to-print';
 import { toast } from 'sonner';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { WordImportModal } from '@/components/WordImportModal';
 import { 
   Save, Printer, ArrowLeft, Plus, Trash2, 
   Table as TableIcon, CheckSquare, ListOrdered, Minus, Lock, Unlock,
@@ -406,6 +407,15 @@ export default function FormEditorPage() {
   const [sortOrder, setSortOrder] = useState<'none' | 'asc' | 'desc'>('none');
   const [genderPriority, setGenderPriority] = useState<'female' | 'male'>('female');
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, message: string, onConfirm: () => void}>({ isOpen: false, message: '', onConfirm: () => {} });
+  const [wordImportState, setWordImportState] = useState<{
+    isOpen: boolean;
+    parsedItems: FormItem[];
+    fileName: string;
+  }>({
+    isOpen: false,
+    parsedItems: [],
+    fileName: ''
+  });
   const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -651,26 +661,11 @@ export default function FormEditorPage() {
       Array.from(doc.body.children).forEach(processElement);
 
       if (newItems.length > 0) {
-        const totalParsed = newItems.length;
-        const promptResult = window.prompt(
-          `Word dosyasında toplam ${totalParsed} adet gündem maddesi bulundu.\n\nKaçıncı sıradaki maddeden başlayarak aktarmak istersiniz? (1 - ${totalParsed}):`,
-          "1"
-        );
-        if (promptResult === null) {
-          toast.info('İçe aktarma işlemi iptal edildi.');
-          return;
-        }
-        let startNum = parseInt(promptResult.trim(), 10);
-        if (isNaN(startNum) || startNum < 1) startNum = 1;
-        if (startNum > totalParsed) {
-          toast.error(`Başlangıç sırası 1 ile ${totalParsed} arasında olmalıdır.`);
-          return;
-        }
-        const startIndex = startNum - 1;
-        const itemsToAdd = newItems.slice(startIndex);
-
-        updateForm({ items: [...(localForm.items || []), ...itemsToAdd] });
-        toast.success(`Word belgesindeki ${startNum}. maddeden itibaren ${itemsToAdd.length} gündem maddesi başarıyla eklendi.`);
+        setWordImportState({
+          isOpen: true,
+          parsedItems: newItems,
+          fileName: file.name
+        });
       } else {
         toast.error('Formda geçerli bir gündem maddesi (numaralı liste) bulunamadı.');
       }
@@ -680,6 +675,44 @@ export default function FormEditorPage() {
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleConfirmWordImport = ({
+    startFrom,
+    placement,
+    afterItemId
+  }: {
+    startFrom: number;
+    placement: 'start' | 'end' | 'after';
+    afterItemId?: string;
+  }) => {
+    const startIndex = Math.max(0, startFrom - 1);
+    const itemsToAdd = wordImportState.parsedItems.slice(startIndex);
+    if (itemsToAdd.length === 0) return;
+
+    const currentItems = localForm?.items || [];
+    let finalItems: FormItem[] = [];
+
+    if (placement === 'start') {
+      finalItems = [...itemsToAdd, ...currentItems];
+    } else if (placement === 'after' && afterItemId) {
+      const targetIndex = currentItems.findIndex(i => i.id === afterItemId);
+      if (targetIndex !== -1) {
+        finalItems = [
+          ...currentItems.slice(0, targetIndex + 1),
+          ...itemsToAdd,
+          ...currentItems.slice(targetIndex + 1)
+        ];
+      } else {
+        finalItems = [...currentItems, ...itemsToAdd];
+      }
+    } else {
+      finalItems = [...currentItems, ...itemsToAdd];
+    }
+
+    updateForm({ items: finalItems });
+    toast.success(`Word belgesindeki ${startFrom}. maddeden itibaren ${itemsToAdd.length} gündem maddesi başarıyla eklendi.`);
+    setWordImportState({ isOpen: false, parsedItems: [], fileName: '' });
   };
 
   const importExcelToTable = async (itemId: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1908,6 +1941,15 @@ export default function FormEditorPage() {
           </div>
         </div>
       )}
+
+      <WordImportModal
+        isOpen={wordImportState.isOpen}
+        onClose={() => setWordImportState({ isOpen: false, parsedItems: [], fileName: '' })}
+        parsedItems={wordImportState.parsedItems}
+        existingItems={localForm?.items || []}
+        onConfirm={handleConfirmWordImport}
+        fileName={wordImportState.fileName}
+      />
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}

@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "clean": "next clean"
+    "clean": "next clean",
+    "deploy": "node scripts/coolify-deploy.js",
+    "sync:start": "powershell -ExecutionPolicy Bypass -File scripts/start-sync.ps1",
+    "sync:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-sync.ps1",
+    "sync:status": "powershell -ExecutionPolicy Bypass -File scripts/status-sync.ps1"
   },
   "dependencies": {
     "@google/genai": "^1.17.0",
