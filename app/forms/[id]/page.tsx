@@ -9,13 +9,13 @@ import { useReactToPrint } from 'react-to-print';
 import { toast } from 'sonner';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { WordImportModal } from '@/components/WordImportModal';
-import { ExcelTableImportModal, isOverLimitRow, findIncomeColumnIndex, sortAndProcessTableByIncome, parseTurkishCurrency } from '@/components/ExcelTableImportModal';
+import { ExcelTableImportModal, isOverLimitRow, findIncomeColumnIndex, sortAndProcessTableByIncome, parseTurkishCurrency, isTableMuhtaclikActive } from '@/components/ExcelTableImportModal';
 import { 
   Save, Printer, ArrowLeft, Plus, Trash2, 
   Table as TableIcon, CheckSquare, ListOrdered, Minus, Lock, Unlock,
   CheckCircle, ArrowRight, ArrowUp, ArrowDown, ChevronUp, ChevronDown,
   FileText, MessageSquare, Users, Eye, Edit3, Loader2, FileUp, FileDown,
-  ArrowUpDown, GripVertical, X
+  ArrowUpDown, GripVertical, X, Scale
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -104,7 +104,8 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
               </thead>
               <tbody>
                 {item.table.rows.map((row, ri) => {
-                  const isOver = isOverLimitRow(row);
+                  const isMuhtaclik = isTableMuhtaclikActive(item.table);
+                  const isOver = isMuhtaclik && isOverLimitRow(row);
                   return (
                     <tr key={ri} className={isOver ? 'bg-slate-100 font-bold' : ''}>
                       {row.map((cell, ci) => {
@@ -782,10 +783,18 @@ export default function FormEditorPage() {
     }
   };
 
-  const handleConfirmExcelImport = (table: { columns: string[]; rows: string[][] }) => {
+  const handleConfirmExcelImport = (table: { columns: string[]; rows: string[][]; enableMuhtaclikCheck?: boolean }) => {
     if (!excelImportState.itemId) return;
+    const currentTable = localForm?.items.find(i => i.id === excelImportState.itemId)?.table;
+    const isMuhtaclik = table.enableMuhtaclikCheck ?? (currentTable ? isTableMuhtaclikActive(currentTable) : false);
+
     updateItem(excelImportState.itemId, { 
-      table: { columns: table.columns, rows: table.rows } 
+      table: { 
+        ...currentTable,
+        columns: table.columns, 
+        rows: table.rows,
+        enableMuhtaclikCheck: isMuhtaclik
+      } 
     });
     toast.success(`Excel tablosu ${table.rows.length} satır ile başarıyla yüklendi.`);
     setExcelImportState({ isOpen: false, itemId: '', fileName: '', rawColumns: [], rawRows: [] });
@@ -798,6 +807,10 @@ export default function FormEditorPage() {
     cI: number,
     val: string
   ) => {
+    if (!isTableMuhtaclikActive(table)) {
+      return;
+    }
+
     const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
     const detectedIncomeCol = findIncomeColumnIndex(table.columns, table.rows);
 
@@ -822,6 +835,7 @@ export default function FormEditorPage() {
       );
       updateItem(itemId, {
         table: {
+          ...table,
           columns: result.columns,
           rows: result.rows
         }
@@ -832,7 +846,11 @@ export default function FormEditorPage() {
   const addTableToItem = (itemId: string) => {
     updateItem(itemId, { 
       hasTable: true, 
-      table: { columns: ['SIRA NO', 'ADI SOYADI', 'T.C', 'TALEBİ', 'KARAR'], rows: [['1', '', '', '', '']] } 
+      table: { 
+        columns: ['SIRA NO', 'ADI SOYADI', 'T.C', 'TALEBİ', 'KARAR'], 
+        rows: [['1', '', '', '', '']],
+        enableMuhtaclikCheck: false
+      } 
     });
   };
 
@@ -1415,11 +1433,67 @@ export default function FormEditorPage() {
                                     {/* Table Editor */}
                                     {itm.hasTable && itm.table && !isSub && (
                                       <div className="bg-white p-4 rounded border border-slate-200 shadow-sm overflow-hidden">
-                                        <div className="flex justify-between items-center mb-4">
-                                          <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
-                                            <TableIcon className="w-4 h-4" /> Tablo Düzenleyici
-                                          </h4>
-                                          <div className="flex gap-4 items-center">
+                                        <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+                                          <div className="flex flex-wrap items-center gap-3">
+                                            <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+                                              <TableIcon className="w-4 h-4" /> Tablo Düzenleyici
+                                            </h4>
+
+                                            {/* Muhtaçlık Değerlendirmesi Seçimlik Anahtarı */}
+                                            <label 
+                                              className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                                                isTableMuhtaclikActive(itm.table) 
+                                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-xs' 
+                                                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                                              } ${isSaving || (localForm.isLocked && !localForm.isPostponed) ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+                                              title="Bu madde için kişi başı aylık gelire göre muhtaçlık değerlendirmesi, artan sıralama ve koyu punto stilini açar/kapatır"
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={isTableMuhtaclikActive(itm.table)}
+                                                disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                onChange={(e) => {
+                                                  const active = e.target.checked;
+                                                  const currentTable = itm.table!;
+                                                  if (active) {
+                                                    const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
+                                                    const result = sortAndProcessTableByIncome(currentTable.columns, currentTable.rows, muhtaclikLimit);
+                                                    updateItem(itm.id, {
+                                                      table: {
+                                                        ...currentTable,
+                                                        columns: result.incomeColIdx !== -1 ? result.columns : currentTable.columns,
+                                                        rows: result.incomeColIdx !== -1 ? result.rows : currentTable.rows,
+                                                        enableMuhtaclikCheck: true
+                                                      }
+                                                    });
+                                                    toast.success('Bu madde için muhtaçlık değerlendirmesi aktif edildi.');
+                                                  } else {
+                                                    updateItem(itm.id, {
+                                                      table: {
+                                                        ...currentTable,
+                                                        enableMuhtaclikCheck: false
+                                                      }
+                                                    });
+                                                    toast.info('Bu madde için muhtaçlık değerlendirmesi kapatıldı.');
+                                                  }
+                                                }}
+                                                className="w-3.5 h-3.5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                                              />
+                                              <span className="text-xs font-bold select-none flex items-center gap-1.5">
+                                                <Scale className="w-3.5 h-3.5 text-emerald-600" />
+                                                Muhtaçlık Değerlendirmesi
+                                              </span>
+                                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                                isTableMuhtaclikActive(itm.table) 
+                                                  ? 'bg-emerald-200/80 text-emerald-800' 
+                                                  : 'bg-slate-200 text-slate-600'
+                                              }`}>
+                                                {isTableMuhtaclikActive(itm.table) ? 'Aktif' : 'Kapalı'}
+                                              </span>
+                                            </label>
+                                          </div>
+
+                                          <div className="flex flex-wrap gap-4 items-center">
                                             <label className={`text-xs font-bold text-green-600 uppercase cursor-pointer hover:underline flex items-center gap-1 ${isSaving || (localForm.isLocked && !localForm.isPostponed) ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}>
                                               <FileUp className="w-3.5 h-3.5" /> Excel Yükle
                                               <input 
@@ -1436,24 +1510,26 @@ export default function FormEditorPage() {
                                             >
                                               <FileDown className="w-3.5 h-3.5" /> Excel İndir
                                             </button>
-                                             <button 
-                                               type="button"
-                                               disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                               onClick={() => {
-                                                 const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
-                                                 const result = sortAndProcessTableByIncome(itm.table!.columns, itm.table!.rows, muhtaclikLimit);
-                                                 if (result.incomeColIdx === -1) {
-                                                   toast.warning('Gelir sütunu tespit edilemedi. Sütun başlığında "Gelir" veya "Aylık Gelir" yazdığından emin olun.');
-                                                   return;
-                                                 }
-                                                 updateItem(itm.id, { table: { columns: result.columns, rows: result.rows } });
-                                                 toast.success('Tablo gelire göre artan sırada ve muhtaçlık kriterine göre düzenlendi.');
-                                               }}
-                                               className="text-xs font-bold text-emerald-700 hover:text-emerald-800 uppercase flex items-center gap-1 hover:underline disabled:opacity-50"
-                                               title="Tabloyu gelire göre artan sırada dizer ve muhtaçlık sınırını aşanları en alta taşır"
-                                             >
-                                               <ArrowUpDown className="w-3.5 h-3.5" /> Gelire Göre Sırala
-                                             </button>
+                                            {isTableMuhtaclikActive(itm.table) && (
+                                              <button 
+                                                type="button"
+                                                disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                onClick={() => {
+                                                  const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
+                                                  const result = sortAndProcessTableByIncome(itm.table!.columns, itm.table!.rows, muhtaclikLimit);
+                                                  if (result.incomeColIdx === -1) {
+                                                    toast.warning('Gelir sütunu tespit edilemedi. Sütun başlığında "Gelir" veya "Aylık Gelir" yazdığından emin olun.');
+                                                    return;
+                                                  }
+                                                  updateItem(itm.id, { table: { ...itm.table!, columns: result.columns, rows: result.rows } });
+                                                  toast.success('Tablo gelire göre artan sırada ve muhtaçlık kriterine göre düzenlendi.');
+                                                }}
+                                                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 uppercase flex items-center gap-1 hover:underline disabled:opacity-50"
+                                                title="Tabloyu gelire göre artan sırada dizer ve muhtaçlık sınırını aşanları en alta taşır"
+                                              >
+                                                <ArrowUpDown className="w-3.5 h-3.5" /> Gelire Göre Sırala
+                                              </button>
+                                            )}
                                             <button disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)} onClick={() => removeTableFromItem(itm.id)} className="text-xs font-bold text-red-600 uppercase hover:underline disabled:opacity-50">Tabloyu Kaldır</button>
                                           </div>
                                         </div>
@@ -1507,13 +1583,14 @@ export default function FormEditorPage() {
                                             
                                              {/* Rows */}
                                              {itm.table.rows.map((row, rI) => {
-                                               const isOver = isOverLimitRow(row);
+                                               const isMuhtaclik = isTableMuhtaclikActive(itm.table);
+                                               const isOver = isMuhtaclik && isOverLimitRow(row);
                                                return (
                                                  <div key={rI} className={`flex gap-2 items-center group/row p-1 rounded-lg transition-colors ${isOver ? 'bg-slate-100/90 border border-slate-300' : ''}`}>
                                                    <div className={`w-8 shrink-0 text-center text-xs font-bold ${isOver ? 'text-slate-800' : 'text-slate-400'}`}>{rI + 1}</div>
                                                    {row.map((cell, cI) => {
                                                      const isSira = isSiraColumn(itm.table!.columns[cI]);
-                                                     const isCellLimitOver = typeof cell === 'string' && cell.toUpperCase().includes('MUHTAÇLIK SINIRI ÜZERİNDE');
+                                                     const isCellLimitOver = isMuhtaclik && isOverLimitRow([cell]);
                                                      return (
                                                        <input 
                                                          key={cI}
@@ -2076,6 +2153,11 @@ export default function FormEditorPage() {
         rawColumns={excelImportState.rawColumns}
         rawRows={excelImportState.rawRows}
         defaultMuhtaclikSiniri={settings?.muhtaclikSiniri || 9358.50}
+        initialEnableLimitCheck={
+          excelImportState.itemId
+            ? isTableMuhtaclikActive(localForm?.items.find(i => i.id === excelImportState.itemId)?.table)
+            : false
+        }
         onConfirm={handleConfirmExcelImport}
       />
 

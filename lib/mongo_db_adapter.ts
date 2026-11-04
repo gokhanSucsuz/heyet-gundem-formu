@@ -26,6 +26,7 @@ export interface TableConfig {
   columns: string[];
   rows: string[][];
   showBorders?: boolean;
+  enableMuhtaclikCheck?: boolean;
 }
 
 export interface FormSubItem {

@@ -58,6 +58,14 @@ export const isOverLimitRow = (row: string[]) => {
   return row.some(cell => typeof cell === 'string' && cell.toUpperCase().includes('MUHTAÇLIK SINIRI ÜZERİNDE'));
 };
 
+export const isTableMuhtaclikActive = (table?: { rows?: string[][]; enableMuhtaclikCheck?: boolean } | null): boolean => {
+  if (!table) return false;
+  if (typeof table.enableMuhtaclikCheck === 'boolean') {
+    return table.enableMuhtaclikCheck;
+  }
+  return (table.rows || []).some(row => isOverLimitRow(row));
+};
+
 export const findIncomeColumnIndex = (columns: string[], rows?: string[][]): number => {
   let idx = columns.findIndex(col => {
     const c = normalizeTr(col);
@@ -150,7 +158,8 @@ interface ExcelTableImportModalProps {
   rawColumns: string[];
   rawRows: string[][];
   defaultMuhtaclikSiniri: number;
-  onConfirm: (table: { columns: string[]; rows: string[][] }) => void;
+  initialEnableLimitCheck?: boolean;
+  onConfirm: (table: { columns: string[]; rows: string[][]; enableMuhtaclikCheck?: boolean }) => void;
 }
 
 export function ExcelTableImportModal({
@@ -160,10 +169,11 @@ export function ExcelTableImportModal({
   rawColumns,
   rawRows,
   defaultMuhtaclikSiniri,
+  initialEnableLimitCheck = false,
   onConfirm,
 }: ExcelTableImportModalProps) {
   // Kontrol aktif mi?
-  const [enableLimitCheck, setEnableLimitCheck] = useState<boolean>(true);
+  const [enableLimitCheck, setEnableLimitCheck] = useState<boolean>(initialEnableLimitCheck);
   
   // Güncel Muhtaçlık Sınırı (Kullanıcı o an değiştirebilir)
   const [muhtaclikSiniri, setMuhtaclikSiniri] = useState<number>(defaultMuhtaclikSiniri || 9358.50);
@@ -178,7 +188,7 @@ export function ExcelTableImportModal({
   useEffect(() => {
     if (isOpen && rawColumns.length > 0) {
       setMuhtaclikSiniri(defaultMuhtaclikSiniri || 9358.50);
-      setEnableLimitCheck(true);
+      setEnableLimitCheck(initialEnableLimitCheck);
       setManageDecisionCol(true);
 
       // Gelir sütununu tespit et
@@ -304,7 +314,8 @@ export function ExcelTableImportModal({
   const handleConfirm = () => {
     onConfirm({
       columns: processedData.columns,
-      rows: processedData.rows
+      rows: processedData.rows,
+      enableMuhtaclikCheck: enableLimitCheck
     });
     onClose();
   };
@@ -325,8 +336,12 @@ export function ExcelTableImportModal({
             <div>
               <h3 className="text-sm font-bold text-slate-900 uppercase tracking-tight flex items-center gap-2">
                 Excel Tablosu İçe Aktar
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">
-                  Muhtaçlık Kontrollü
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                  enableLimitCheck 
+                    ? 'bg-emerald-100 text-emerald-800' 
+                    : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {enableLimitCheck ? 'Muhtaçlık Kontrollü' : 'Standart Tablo'}
                 </span>
               </h3>
               <p className="text-xs text-slate-500 font-medium truncate max-w-md">
