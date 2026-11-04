@@ -15,7 +15,7 @@ import {
   Table as TableIcon, CheckSquare, ListOrdered, Minus, Lock, Unlock,
   CheckCircle, ArrowRight, ArrowUp, ArrowDown, ChevronUp, ChevronDown,
   FileText, MessageSquare, Users, Eye, Edit3, Loader2, FileUp, FileDown,
-  ArrowUpDown, GripVertical, X, Scale
+  ArrowUpDown, GripVertical, X, Scale, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -783,7 +783,12 @@ export default function FormEditorPage() {
     }
   };
 
-  const handleConfirmExcelImport = (table: { columns: string[]; rows: string[][]; enableMuhtaclikCheck?: boolean }) => {
+  const handleConfirmExcelImport = (table: { 
+    columns: string[]; 
+    rows: string[][]; 
+    enableMuhtaclikCheck?: boolean;
+    incomeColumnIndex?: number;
+  }) => {
     if (!excelImportState.itemId) return;
     const currentTable = localForm?.items.find(i => i.id === excelImportState.itemId)?.table;
     const isMuhtaclik = table.enableMuhtaclikCheck ?? (currentTable ? isTableMuhtaclikActive(currentTable) : false);
@@ -793,7 +798,8 @@ export default function FormEditorPage() {
         ...currentTable,
         columns: table.columns, 
         rows: table.rows,
-        enableMuhtaclikCheck: isMuhtaclik
+        enableMuhtaclikCheck: isMuhtaclik,
+        incomeColumnIndex: table.incomeColumnIndex ?? currentTable?.incomeColumnIndex
       } 
     });
     toast.success(`Excel tablosu ${table.rows.length} satır ile başarıyla yüklendi.`);
@@ -811,36 +817,35 @@ export default function FormEditorPage() {
       return;
     }
 
-    const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
-    const detectedIncomeCol = findIncomeColumnIndex(table.columns, table.rows);
+    const targetIncomeCol = table.incomeColumnIndex !== undefined && table.incomeColumnIndex >= 0
+      ? table.incomeColumnIndex
+      : findIncomeColumnIndex(table.columns, table.rows);
 
-    const isTargetCol = detectedIncomeCol === cI || (
-      detectedIncomeCol === -1 && (
-        (typeof val === 'string' && val.toUpperCase().includes('MUHTAÇLIK SINIRI ÜZERİNDE')) ||
-        parseTurkishCurrency(val) !== null
-      )
-    );
-
-    if (isTargetCol) {
-      const activeColIdx = detectedIncomeCol !== -1 ? detectedIncomeCol : cI;
-      const latestRows = table.rows.map(r => [...r]);
-      if (latestRows[rI]) {
-        latestRows[rI][cI] = val;
-      }
-      const result = sortAndProcessTableByIncome(
-        table.columns,
-        latestRows,
-        muhtaclikLimit,
-        activeColIdx
-      );
-      updateItem(itemId, {
-        table: {
-          ...table,
-          columns: result.columns,
-          rows: result.rows
-        }
-      });
+    // Yalnızca seçilen muhtaçlık sütununda değişiklik yapıldığında sırala/kontrol et
+    if (targetIncomeCol !== -1 && cI !== targetIncomeCol) {
+      return;
     }
+
+    const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
+    const activeColIdx = targetIncomeCol !== -1 ? targetIncomeCol : cI;
+    const latestRows = table.rows.map(r => [...r]);
+    if (latestRows[rI]) {
+      latestRows[rI][cI] = val;
+    }
+    const result = sortAndProcessTableByIncome(
+      table.columns,
+      latestRows,
+      muhtaclikLimit,
+      activeColIdx
+    );
+    updateItem(itemId, {
+      table: {
+        ...table,
+        columns: result.columns,
+        rows: result.rows,
+        incomeColumnIndex: activeColIdx
+      }
+    });
   };
 
   const addTableToItem = (itemId: string) => {
@@ -1457,13 +1462,17 @@ export default function FormEditorPage() {
                                                   const currentTable = itm.table!;
                                                   if (active) {
                                                     const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
-                                                    const result = sortAndProcessTableByIncome(currentTable.columns, currentTable.rows, muhtaclikLimit);
+                                                    const targetCol = currentTable.incomeColumnIndex !== undefined && currentTable.incomeColumnIndex >= 0
+                                                      ? currentTable.incomeColumnIndex
+                                                      : findIncomeColumnIndex(currentTable.columns, currentTable.rows);
+                                                    const result = sortAndProcessTableByIncome(currentTable.columns, currentTable.rows, muhtaclikLimit, targetCol >= 0 ? targetCol : undefined);
                                                     updateItem(itm.id, {
                                                       table: {
                                                         ...currentTable,
                                                         columns: result.incomeColIdx !== -1 ? result.columns : currentTable.columns,
                                                         rows: result.incomeColIdx !== -1 ? result.rows : currentTable.rows,
-                                                        enableMuhtaclikCheck: true
+                                                        enableMuhtaclikCheck: true,
+                                                        incomeColumnIndex: result.incomeColIdx !== -1 ? result.incomeColIdx : (currentTable.incomeColumnIndex ?? 0)
                                                       }
                                                     });
                                                     toast.success('Bu madde için muhtaçlık değerlendirmesi aktif edildi.');
@@ -1491,6 +1500,46 @@ export default function FormEditorPage() {
                                                 {isTableMuhtaclikActive(itm.table) ? 'Aktif' : 'Kapalı'}
                                               </span>
                                             </label>
+
+                                            {/* Sütun Seçimi Dropdown */}
+                                            {isTableMuhtaclikActive(itm.table) && (
+                                              <div className="flex items-center gap-1.5 bg-emerald-50/80 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                                                <span className="text-[11px] font-bold text-emerald-900 uppercase whitespace-nowrap flex items-center gap-1">
+                                                  <Sparkles className="w-3 h-3 text-emerald-600" />
+                                                  Kontrol Sütunu:
+                                                </span>
+                                                <select
+                                                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                  value={
+                                                    itm.table.incomeColumnIndex !== undefined && itm.table.incomeColumnIndex >= 0 && itm.table.incomeColumnIndex < itm.table.columns.length
+                                                      ? itm.table.incomeColumnIndex
+                                                      : Math.max(0, findIncomeColumnIndex(itm.table.columns, itm.table.rows))
+                                                  }
+                                                  onChange={(e) => {
+                                                    const newColIdx = Number(e.target.value);
+                                                    const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
+                                                    const currentTable = itm.table!;
+                                                    const result = sortAndProcessTableByIncome(currentTable.columns, currentTable.rows, muhtaclikLimit, newColIdx);
+                                                    updateItem(itm.id, {
+                                                      table: {
+                                                        ...currentTable,
+                                                        columns: result.columns,
+                                                        rows: result.rows,
+                                                        incomeColumnIndex: newColIdx
+                                                      }
+                                                    });
+                                                    toast.success(`Muhtaçlık kontrol sütunu: Sütun ${newColIdx + 1} (${currentTable.columns[newColIdx] || 'İsimsiz'})`);
+                                                  }}
+                                                  className="text-xs font-bold text-slate-800 bg-white border border-emerald-300 rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                                                >
+                                                  {itm.table.columns.map((col, cIdx) => (
+                                                    <option key={cIdx} value={cIdx}>
+                                                      Sütun {cIdx + 1}: {col || '(İsimsiz)'}
+                                                    </option>
+                                                  ))}
+                                                </select>
+                                              </div>
+                                            )}
                                           </div>
 
                                           <div className="flex flex-wrap gap-4 items-center">
@@ -1516,16 +1565,26 @@ export default function FormEditorPage() {
                                                 disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
                                                 onClick={() => {
                                                   const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
-                                                  const result = sortAndProcessTableByIncome(itm.table!.columns, itm.table!.rows, muhtaclikLimit);
+                                                  const targetCol = itm.table!.incomeColumnIndex !== undefined && itm.table!.incomeColumnIndex >= 0
+                                                    ? itm.table!.incomeColumnIndex
+                                                    : findIncomeColumnIndex(itm.table!.columns, itm.table!.rows);
+                                                  const result = sortAndProcessTableByIncome(itm.table!.columns, itm.table!.rows, muhtaclikLimit, targetCol >= 0 ? targetCol : undefined);
                                                   if (result.incomeColIdx === -1) {
-                                                    toast.warning('Gelir sütunu tespit edilemedi. Sütun başlığında "Gelir" veya "Aylık Gelir" yazdığından emin olun.');
+                                                    toast.warning('Gelir sütunu tespit edilemedi. Lütfen "Kontrol Sütunu" açılır menüsünden bir sütun seçin.');
                                                     return;
                                                   }
-                                                  updateItem(itm.id, { table: { ...itm.table!, columns: result.columns, rows: result.rows } });
-                                                  toast.success('Tablo gelire göre artan sırada ve muhtaçlık kriterine göre düzenlendi.');
+                                                  updateItem(itm.id, { 
+                                                    table: { 
+                                                      ...itm.table!, 
+                                                      columns: result.columns, 
+                                                      rows: result.rows,
+                                                      incomeColumnIndex: result.incomeColIdx
+                                                    } 
+                                                  });
+                                                  toast.success('Tablo seçilen sütuna göre artan sırada ve muhtaçlık kriterine göre düzenlendi.');
                                                 }}
                                                 className="text-xs font-bold text-emerald-700 hover:text-emerald-800 uppercase flex items-center gap-1 hover:underline disabled:opacity-50"
-                                                title="Tabloyu gelire göre artan sırada dizer ve muhtaçlık sınırını aşanları en alta taşır"
+                                                title="Tabloyu seçilen kontrol sütununa göre artan sırada dizer ve muhtaçlık sınırını aşanları en alta taşır"
                                               >
                                                 <ArrowUpDown className="w-3.5 h-3.5" /> Gelire Göre Sırala
                                               </button>
@@ -1539,35 +1598,51 @@ export default function FormEditorPage() {
                                             {/* Columns Header */}
                                             <div className="flex gap-2 items-center">
                                               <div className="w-8 shrink-0"></div>
-                                              {itm.table.columns.map((col, cI) => (
-                                                <div key={cI} className={`relative group/col flex-1 min-w-[120px] ${isSiraColumn(col) ? 'flex-none min-w-0 w-20' : ''}`}>
-                                                  <input 
-                                                    disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                    className="w-full pr-8 text-xs font-bold uppercase border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 disabled:opacity-50" 
-                                                    value={col}
-                                                    placeholder={`Sütun ${cI + 1}`}
-                                                    onChange={(e) => {
-                                                      const newCols = [...itm.table!.columns];
-                                                      newCols[cI] = e.target.value;
-                                                      updateItem(itm.id, { table: { ...itm.table!, columns: newCols } });
-                                                    }}
-                                                  />
-                                                  {itm.table!.columns.length > 1 && (
-                                                    <button 
+                                              {itm.table.columns.map((col, cI) => {
+                                                const isIncomeCol = isTableMuhtaclikActive(itm.table) && (
+                                                  itm.table?.incomeColumnIndex !== undefined && itm.table.incomeColumnIndex >= 0
+                                                    ? itm.table.incomeColumnIndex === cI
+                                                    : findIncomeColumnIndex(itm.table?.columns || [], itm.table?.rows) === cI
+                                                );
+                                                return (
+                                                  <div key={cI} className={`relative group/col flex-1 min-w-[120px] ${isSiraColumn(col) ? 'flex-none min-w-0 w-20' : ''}`}>
+                                                    <input 
                                                       disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                      onClick={() => {
-                                                        const newCols = itm.table!.columns.filter((_, i) => i !== cI);
-                                                        const newRows = itm.table!.rows.map(r => r.filter((_, i) => i !== cI));
-                                                        updateItem(itm.id, { table: { ...itm.table!, columns: newCols, rows: newRows } });
+                                                      className={`w-full pr-8 text-xs font-bold uppercase border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50 ${
+                                                        isIncomeCol 
+                                                          ? 'border-emerald-500 bg-emerald-50/40 text-emerald-950 ring-1 ring-emerald-400' 
+                                                          : 'border-slate-300 bg-slate-50'
+                                                      }`} 
+                                                      value={col}
+                                                      placeholder={`Sütun ${cI + 1}`}
+                                                      onChange={(e) => {
+                                                        const newCols = [...itm.table!.columns];
+                                                        newCols[cI] = e.target.value;
+                                                        updateItem(itm.id, { table: { ...itm.table!, columns: newCols } });
                                                       }}
-                                                      className="absolute right-1 top-[5px] p-1 text-red-500 hover:bg-red-50 rounded opacity-0 group-hover/col:opacity-100 transition-opacity disabled:opacity-0"
-                                                      title="Sütunu Sil"
-                                                    >
-                                                      <Trash2 className="w-3 h-3" />
-                                                    </button>
-                                                  )}
-                                                </div>
-                                              ))}
+                                                    />
+                                                    {isIncomeCol && (
+                                                      <span className="absolute right-7 top-2.5 text-[9px] font-black tracking-wider text-emerald-700 bg-emerald-100/90 px-1 rounded pointer-events-none uppercase">
+                                                        GELİR
+                                                      </span>
+                                                    )}
+                                                    {itm.table!.columns.length > 1 && (
+                                                      <button 
+                                                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                        onClick={() => {
+                                                          const newCols = itm.table!.columns.filter((_, i) => i !== cI);
+                                                          const newRows = itm.table!.rows.map(r => r.filter((_, i) => i !== cI));
+                                                          updateItem(itm.id, { table: { ...itm.table!, columns: newCols, rows: newRows } });
+                                                        }}
+                                                        className="absolute right-1 top-[5px] p-1 text-red-500 hover:bg-red-50 rounded opacity-0 group-hover/col:opacity-100 transition-opacity disabled:opacity-0"
+                                                        title="Sütunu Sil"
+                                                      >
+                                                        <Trash2 className="w-3 h-3" />
+                                                      </button>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
                                               <button 
                                                 disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
                                                 onClick={() => {
@@ -2157,6 +2232,11 @@ export default function FormEditorPage() {
           excelImportState.itemId
             ? isTableMuhtaclikActive(localForm?.items.find(i => i.id === excelImportState.itemId)?.table)
             : false
+        }
+        initialIncomeColumnIndex={
+          excelImportState.itemId
+            ? localForm?.items.find(i => i.id === excelImportState.itemId)?.table?.incomeColumnIndex
+            : undefined
         }
         onConfirm={handleConfirmExcelImport}
       />

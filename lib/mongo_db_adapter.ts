@@ -27,6 +27,7 @@ export interface TableConfig {
   rows: string[][];
   showBorders?: boolean;
   enableMuhtaclikCheck?: boolean;
+  incomeColumnIndex?: number;
 }
 
 export interface FormSubItem {

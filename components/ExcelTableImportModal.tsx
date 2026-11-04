@@ -159,7 +159,13 @@ interface ExcelTableImportModalProps {
   rawRows: string[][];
   defaultMuhtaclikSiniri: number;
   initialEnableLimitCheck?: boolean;
-  onConfirm: (table: { columns: string[]; rows: string[][]; enableMuhtaclikCheck?: boolean }) => void;
+  initialIncomeColumnIndex?: number;
+  onConfirm: (table: { 
+    columns: string[]; 
+    rows: string[][]; 
+    enableMuhtaclikCheck?: boolean;
+    incomeColumnIndex?: number;
+  }) => void;
 }
 
 export function ExcelTableImportModal({
@@ -170,6 +176,7 @@ export function ExcelTableImportModal({
   rawRows,
   defaultMuhtaclikSiniri,
   initialEnableLimitCheck = false,
+  initialIncomeColumnIndex,
   onConfirm,
 }: ExcelTableImportModalProps) {
   // Kontrol aktif mi?
@@ -191,28 +198,32 @@ export function ExcelTableImportModal({
       setEnableLimitCheck(initialEnableLimitCheck);
       setManageDecisionCol(true);
 
-      // Gelir sütununu tespit et
-      let foundIdx = findIncomeColumnIndex(rawColumns, rawRows);
+      if (initialIncomeColumnIndex !== undefined && initialIncomeColumnIndex >= 0 && initialIncomeColumnIndex < rawColumns.length) {
+        setIncomeColIndex(initialIncomeColumnIndex);
+      } else {
+        // Gelir sütununu tespit et
+        let foundIdx = findIncomeColumnIndex(rawColumns, rawRows);
 
-      if (foundIdx === -1) {
-        // İkinci kontrol: satırlardaki değerlere bakarak parasal veri içeren sütunu bul
-        const colScores = rawColumns.map((_, cIdx) => {
-          let parseSuccess = 0;
-          for (let r = 0; r < Math.min(rawRows.length, 10); r++) {
-            const val = rawRows[r]?.[cIdx];
-            if (val && parseTurkishCurrency(val) !== null) parseSuccess++;
+        if (foundIdx === -1) {
+          // İkinci kontrol: satırlardaki değerlere bakarak parasal veri içeren sütunu bul
+          const colScores = rawColumns.map((_, cIdx) => {
+            let parseSuccess = 0;
+            for (let r = 0; r < Math.min(rawRows.length, 10); r++) {
+              const val = rawRows[r]?.[cIdx];
+              if (val && parseTurkishCurrency(val) !== null) parseSuccess++;
+            }
+            return parseSuccess;
+          });
+          const maxScore = Math.max(...colScores);
+          if (maxScore > 0) {
+            foundIdx = colScores.indexOf(maxScore);
           }
-          return parseSuccess;
-        });
-        const maxScore = Math.max(...colScores);
-        if (maxScore > 0) {
-          foundIdx = colScores.indexOf(maxScore);
         }
-      }
 
-      setIncomeColIndex(foundIdx >= 0 ? foundIdx : (rawColumns.length > 3 ? 3 : 0));
+        setIncomeColIndex(foundIdx >= 0 ? foundIdx : (rawColumns.length > 3 ? 3 : 0));
+      }
     }
-  }, [isOpen, rawColumns, rawRows, defaultMuhtaclikSiniri]);
+  }, [isOpen, rawColumns, rawRows, defaultMuhtaclikSiniri, initialEnableLimitCheck, initialIncomeColumnIndex]);
 
   // Karar sütunu var mı?
   const existingDecisionColIdx = useMemo(() => {
@@ -315,7 +326,8 @@ export function ExcelTableImportModal({
     onConfirm({
       columns: processedData.columns,
       rows: processedData.rows,
-      enableMuhtaclikCheck: enableLimitCheck
+      enableMuhtaclikCheck: enableLimitCheck,
+      incomeColumnIndex: enableLimitCheck ? incomeColIndex : undefined
     });
     onClose();
   };
