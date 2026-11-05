@@ -58,6 +58,19 @@ export const isOverLimitRow = (row: string[]) => {
   return row.some(cell => typeof cell === 'string' && cell.toUpperCase().includes('MUHTAÇLIK SINIRI ÜZERİNDE'));
 };
 
+export const isStringIncomeRow = (row: string[], incomeColIdx?: number): boolean => {
+  if (incomeColIdx === undefined || incomeColIdx < 0 || incomeColIdx >= row.length) return false;
+  const cell = row[incomeColIdx];
+  const s = typeof cell === 'string' ? cell.trim() : (cell != null ? String(cell).trim() : '');
+  if (!s) return false;
+  if (s.toUpperCase().includes('MUHTAÇLIK SINIRI ÜZERİNDE')) return false;
+  return parseTurkishCurrency(s) === null;
+};
+
+export const isHighlightRow = (row: string[], incomeColIdx?: number): boolean => {
+  return isOverLimitRow(row) || isStringIncomeRow(row, incomeColIdx);
+};
+
 export const isTableMuhtaclikActive = (table?: { rows?: string[][]; enableMuhtaclikCheck?: boolean } | null): boolean => {
   if (!table) return false;
   if (typeof table.enableMuhtaclikCheck === 'boolean') {
@@ -104,6 +117,7 @@ export function sortAndProcessTableByIncome(
   });
 
   const acceptedList: { row: string[]; incomeVal: number }[] = [];
+  const stringList: string[][] = [];
   const rejectedList: string[][] = [];
 
   rows.forEach(row => {
@@ -113,17 +127,22 @@ export function sortAndProcessTableByIncome(
     }
 
     const cellVal = cloned[incomeColIdx];
+    const s = typeof cellVal === 'string' ? cellVal.trim() : (cellVal != null ? String(cellVal).trim() : '');
+    const isOver = s.toUpperCase().includes('MUHTAÇLIK SINIRI ÜZERİNDE');
     const parsedVal = parseTurkishCurrency(cellVal);
 
-    if (
-      (typeof cellVal === 'string' && cellVal.toUpperCase().includes('MUHTAÇLIK SINIRI ÜZERİNDE')) ||
-      (parsedVal !== null && parsedVal > muhtaclikLimit)
-    ) {
+    if (isOver || (parsedVal !== null && parsedVal > muhtaclikLimit)) {
       cloned[incomeColIdx] = 'MUHTAÇLIK SINIRI ÜZERİNDE';
       if (decisionColIdx >= 0) {
         cloned[decisionColIdx] = ''; // Heyet için boş bırakılır
       }
       rejectedList.push(cloned);
+    } else if (s !== '' && parsedVal === null) {
+      // String karakter girilmiş: muhtaçlık sınırı üzerindeki kayıtların hemen üzerine (veya sınır üstü yoksa en alta)
+      if (decisionColIdx >= 0 && cloned[decisionColIdx] === undefined) {
+        cloned[decisionColIdx] = '';
+      }
+      stringList.push(cloned);
     } else {
       if (decisionColIdx >= 0 && cloned[decisionColIdx] === undefined) {
         cloned[decisionColIdx] = '';
@@ -138,7 +157,10 @@ export function sortAndProcessTableByIncome(
   // Artan sırada (küçükten büyüğe) sırala
   acceptedList.sort((a, b) => a.incomeVal - b.incomeVal);
 
-  const finalRows = [...acceptedList.map(item => item.row), ...rejectedList];
+  // Sıralama: kabul edilenler -> string (metin) olanlar -> reddedilenler (sınır üstü)
+  // Eğer reddedilen kayıt varsa: string olanlar sınır üstü kayıtların hemen üzerinde yer alır.
+  // Eğer reddedilen kayıt yoksa: string olanlar listenin en altında yer alır.
+  const finalRows = [...acceptedList.map(item => item.row), ...stringList, ...rejectedList];
 
   // SIRA NO sütununu 1..N olarak yeniden numaralandır
   const siraIdx = columns.findIndex(col => isSiraColumn(col));
@@ -250,6 +272,7 @@ export function ExcelTableImportModal({
     }
 
     const acceptedList: { row: string[]; incomeVal: number }[] = [];
+    const stringList: string[][] = [];
     const rejectedList: string[][] = [];
 
     rawRows.forEach((row) => {
@@ -261,15 +284,24 @@ export function ExcelTableImportModal({
 
       if (enableLimitCheck && incomeColIndex >= 0 && incomeColIndex < clonedRow.length) {
         const rawIncome = clonedRow[incomeColIndex];
+        const s = typeof rawIncome === 'string' ? rawIncome.trim() : (rawIncome != null ? String(rawIncome).trim() : '');
+        const isOver = s.toUpperCase().includes('MUHTAÇLIK SINIRI ÜZERİNDE');
         const parsedIncome = parseTurkishCurrency(rawIncome);
 
-        if (parsedIncome !== null && parsedIncome > muhtaclikSiniri) {
+        if (isOver || (parsedIncome !== null && parsedIncome > muhtaclikSiniri)) {
           // Sınırı aşan kayıt
           clonedRow[incomeColIndex] = 'MUHTAÇLIK SINIRI ÜZERİNDE';
           if (decisionColIdx >= 0 && manageDecisionCol) {
             clonedRow[decisionColIdx] = ''; // Heyet için boş bırakılır
           }
           rejectedList.push(clonedRow);
+          return;
+        } else if (s !== '' && parsedIncome === null) {
+          // String değer girilmiş: muhtaçlık sınırı üzerindekilerin hemen üstü veya en alt
+          if (decisionColIdx >= 0 && manageDecisionCol) {
+            clonedRow[decisionColIdx] = '';
+          }
+          stringList.push(clonedRow);
           return;
         } else {
           if (decisionColIdx >= 0 && manageDecisionCol) {
@@ -298,9 +330,9 @@ export function ExcelTableImportModal({
       acceptedList.sort((a, b) => a.incomeVal - b.incomeVal);
     }
 
-    // Kabul edilenler üstte, reddedilenler (sınır üstü) altta
+    // Sıralama: kabul edilenler -> string (metin) olanlar -> reddedilenler (sınır üstü)
     const allRows = enableLimitCheck 
-      ? [...acceptedList.map(item => item.row), ...rejectedList] 
+      ? [...acceptedList.map(item => item.row), ...stringList, ...rejectedList] 
       : acceptedList.map(item => item.row);
 
     // SIRA NO sütununu 1..N olarak yeniden numaralandır
@@ -538,11 +570,12 @@ export function ExcelTableImportModal({
                 <tbody className="divide-y divide-slate-100">
                   {processedData.previewRows.map((row, rIdx) => {
                     const isOver = isOverLimitRow(row);
+                    const isHighlight = enableLimitCheck && isHighlightRow(row, incomeColIndex);
                     return (
                       <tr 
                         key={rIdx} 
                         className={`transition-colors ${
-                          isOver 
+                          isHighlight 
                             ? 'bg-slate-100 font-bold text-slate-900' 
                             : 'hover:bg-slate-50 text-slate-700'
                         }`}
@@ -551,7 +584,7 @@ export function ExcelTableImportModal({
                           <td 
                             key={cIdx} 
                             className={`p-2 whitespace-nowrap text-[11px] border-r border-slate-200/60 last:border-r-0 ${
-                              isOver ? 'font-bold' : ''
+                              isHighlight ? 'font-bold' : ''
                             } ${
                               cIdx === incomeColIndex && isOver ? 'text-red-700 font-black' : ''
                             }`}

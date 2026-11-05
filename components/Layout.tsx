@@ -2,16 +2,33 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FileText, Users, Settings, Menu, X, LogOut, User, Key } from 'lucide-react';
-import { useState } from 'react';
+import { FileText, Users, Settings, Menu, X, LogOut, User, Key, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Toaster } from 'sonner';
 import { usePersonnel } from '@/components/PersonnelProvider';
 import { db } from '@/lib/db';
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+export function AppLayout({ children, fullWidth }: { children: React.ReactNode; fullWidth?: boolean }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const { personnel, logout } = usePersonnel();
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sydv_sidebar_collapsed');
+      if (saved !== null) {
+        setIsSidebarCollapsed(saved === 'true');
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  const toggleSidebar = (collapsed: boolean) => {
+    setIsSidebarCollapsed(collapsed);
+    try {
+      localStorage.setItem('sydv_sidebar_collapsed', String(collapsed));
+    } catch { /* ignore */ }
+  };
 
   const navItems = [
     { href: '/', label: 'Gündem ve Kararlar', icon: FileText },
@@ -58,13 +75,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-200 text-slate-800 font-sans">
       {/* Desktop Sidebar */}
-      <aside className="w-80 bg-white border-r border-slate-300 flex flex-col hidden lg:flex shadow-xl z-20">
-        <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <img src="/logo-sydv.jpg" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-blue-200" />
-          <div className="flex flex-col">
-            <h1 className="font-bold tracking-tight text-sm uppercase text-slate-900 leading-none">Mütevelli Heyeti</h1>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Gündem Aracı</span>
+      <aside className={`w-80 bg-white border-r border-slate-300 flex-col hidden lg:flex shadow-xl z-20 shrink-0 transition-all duration-300 ease-in-out ${isSidebarCollapsed ? '-ml-80' : ''}`}>
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src="/logo-sydv.jpg" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-blue-200" />
+            <div className="flex flex-col">
+              <h1 className="font-bold tracking-tight text-sm uppercase text-slate-900 leading-none">Mütevelli Heyeti</h1>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Gündem Aracı</span>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => toggleSidebar(true)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            title="Menüyü Kapat / Daralt"
+          >
+            <PanelLeftClose className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Personnel Info */}
@@ -223,8 +250,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <div id="main-scroll-container" className="flex-1 overflow-y-auto relative p-2 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-6xl">
+        {/* Desktop Sidebar Expand Button (when collapsed) */}
+        {isSidebarCollapsed && (
+          <button
+            type="button"
+            onClick={() => toggleSidebar(false)}
+            className="hidden lg:flex fixed top-4 left-4 z-40 p-2.5 bg-white/95 hover:bg-white text-slate-700 rounded-xl shadow-lg border border-slate-300 items-center gap-2 text-xs font-bold transition-all hover:scale-105 backdrop-blur hover:text-blue-600 group"
+            title="Sol Menüyü Aç"
+          >
+            <PanelLeftOpen className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
+            <span>Menüyü Aç</span>
+          </button>
+        )}
+
+        <div id="main-scroll-container" className={`flex-1 overflow-y-auto relative ${fullWidth ? 'p-2 sm:p-4' : 'p-2 sm:p-6 lg:p-8'}`}>
+          <div className={`mx-auto ${fullWidth ? 'w-full max-w-none' : 'max-w-6xl'}`}>
             {children}
           </div>
         </div>

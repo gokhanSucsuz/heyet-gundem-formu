@@ -9,7 +9,16 @@ import { useReactToPrint } from 'react-to-print';
 import { toast } from 'sonner';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { WordImportModal } from '@/components/WordImportModal';
-import { ExcelTableImportModal, isOverLimitRow, findIncomeColumnIndex, sortAndProcessTableByIncome, parseTurkishCurrency, isTableMuhtaclikActive } from '@/components/ExcelTableImportModal';
+import { 
+  ExcelTableImportModal, 
+  isOverLimitRow, 
+  isStringIncomeRow, 
+  isHighlightRow, 
+  findIncomeColumnIndex, 
+  sortAndProcessTableByIncome, 
+  parseTurkishCurrency, 
+  isTableMuhtaclikActive 
+} from '@/components/ExcelTableImportModal';
 import { 
   Save, Printer, ArrowLeft, Plus, Trash2, 
   Table as TableIcon, CheckSquare, ListOrdered, Minus, Lock, Unlock,
@@ -105,15 +114,20 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
               <tbody>
                 {item.table.rows.map((row, ri) => {
                   const isMuhtaclik = isTableMuhtaclikActive(item.table);
+                  const targetIncomeCol = item.table?.incomeColumnIndex !== undefined && item.table.incomeColumnIndex >= 0
+                    ? item.table.incomeColumnIndex
+                    : findIncomeColumnIndex(item.table?.columns || [], item.table?.rows);
                   const isOver = isMuhtaclik && isOverLimitRow(row);
+                  const isStringRow = isMuhtaclik && !isOver && isStringIncomeRow(row, targetIncomeCol);
+                  const isHighlight = isOver || isStringRow;
                   return (
-                    <tr key={ri} className={isOver ? 'bg-slate-100 font-bold' : ''}>
+                    <tr key={ri} className={isHighlight ? 'bg-slate-100 font-bold' : ''}>
                       {row.map((cell, ci) => {
                         const isSira = isSiraColumn(item.table!.columns[ci]);
                         return (
                           <td 
                             key={ci} 
-                            className={`border border-black text-[10px] ${tablePad} ${isSira ? 'text-center font-bold' : ''} ${isOver ? 'font-bold bg-slate-100' : ''}`}
+                            className={`border border-black text-[10px] ${tablePad} ${isSira ? 'text-center font-bold' : ''} ${isHighlight ? 'font-bold bg-slate-100' : ''}`}
                           >
                             {isSira ? (ri + 1) : cell}
                           </td>
@@ -882,7 +896,7 @@ export default function FormEditorPage() {
   };
 
   return (
-    <AppLayout>
+    <AppLayout fullWidth={activeTab === 'editor'}>
       <div className="flex flex-col h-full h-[calc(100vh-2rem)]">
         {/* Header Actions */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 bg-white p-3 rounded border border-slate-300 shadow-sm mb-6 shrink-0 z-10 relative">
@@ -1074,7 +1088,7 @@ export default function FormEditorPage() {
               </div>
             )}
             {activeTab === 'editor' ? (
-              <div className="w-full max-w-5xl mx-auto space-y-8 px-2 sm:px-4">
+              <div className="w-full space-y-6 px-1 sm:px-2">
                 {/* Metadata Section */}
                 {isAdmin && (
                 <div id="header" className={`bg-white p-5 rounded border border-slate-300 shadow-sm space-y-4 scroll-mt-20 transition-opacity ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -1594,10 +1608,10 @@ export default function FormEditorPage() {
                                         </div>
                                         
                                         <div className="overflow-x-auto pb-4">
-                                          <div className="flex flex-col gap-2 min-w-max">
+                                          <div className="flex flex-col gap-2 w-full">
                                             {/* Columns Header */}
-                                            <div className="flex gap-2 items-center">
-                                              <div className="w-8 shrink-0"></div>
+                                            <div className="flex gap-2 items-center w-full">
+                                              <div className="w-8 shrink-0 text-center text-xs font-bold text-slate-400">#</div>
                                               {itm.table.columns.map((col, cI) => {
                                                 const isIncomeCol = isTableMuhtaclikActive(itm.table) && (
                                                   itm.table?.incomeColumnIndex !== undefined && itm.table.incomeColumnIndex >= 0
@@ -1605,10 +1619,10 @@ export default function FormEditorPage() {
                                                     : findIncomeColumnIndex(itm.table?.columns || [], itm.table?.rows) === cI
                                                 );
                                                 return (
-                                                  <div key={cI} className={`relative group/col flex-1 min-w-[120px] ${isSiraColumn(col) ? 'flex-none min-w-0 w-20' : ''}`}>
+                                                  <div key={cI} className={`relative group/col ${isSiraColumn(col) ? 'w-14 shrink-0' : 'flex-1 min-w-[70px]'}`}>
                                                     <input 
                                                       disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                      className={`w-full pr-8 text-xs font-bold uppercase border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50 ${
+                                                      className={`w-full ${isIncomeCol ? 'pr-7' : 'pr-2'} text-xs font-bold uppercase border rounded p-1.5 focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50 ${
                                                         isIncomeCol 
                                                           ? 'border-emerald-500 bg-emerald-50/40 text-emerald-950 ring-1 ring-emerald-400' 
                                                           : 'border-slate-300 bg-slate-50'
@@ -1622,7 +1636,7 @@ export default function FormEditorPage() {
                                                       }}
                                                     />
                                                     {isIncomeCol && (
-                                                      <span className="absolute right-7 top-2.5 text-[9px] font-black tracking-wider text-emerald-700 bg-emerald-100/90 px-1 rounded pointer-events-none uppercase">
+                                                      <span className="absolute right-6 top-2 text-[8px] font-black tracking-wider text-emerald-700 bg-emerald-100/90 px-1 rounded pointer-events-none uppercase">
                                                         GELİR
                                                       </span>
                                                     )}
@@ -1634,7 +1648,7 @@ export default function FormEditorPage() {
                                                           const newRows = itm.table!.rows.map(r => r.filter((_, i) => i !== cI));
                                                           updateItem(itm.id, { table: { ...itm.table!, columns: newCols, rows: newRows } });
                                                         }}
-                                                        className="absolute right-1 top-[5px] p-1 text-red-500 hover:bg-red-50 rounded opacity-0 group-hover/col:opacity-100 transition-opacity disabled:opacity-0"
+                                                        className="absolute right-1 top-[4px] p-1 text-red-500 hover:bg-red-50 rounded opacity-0 group-hover/col:opacity-100 transition-opacity disabled:opacity-0"
                                                         title="Sütunu Sil"
                                                       >
                                                         <Trash2 className="w-3 h-3" />
@@ -1650,19 +1664,24 @@ export default function FormEditorPage() {
                                                   const newRows = itm.table!.rows.map(r => [...r, '']);
                                                   updateItem(itm.id, { table: { columns: newCols, rows: newRows } });
                                                 }}
-                                                className="shrink-0 p-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-slate-600 w-[100px] disabled:opacity-50"
+                                                className="shrink-0 px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-slate-600 whitespace-nowrap disabled:opacity-50"
                                               >
-                                                + SÜTUN Ekle
+                                                + SÜTUN
                                               </button>
                                             </div>
                                             
                                              {/* Rows */}
                                              {itm.table.rows.map((row, rI) => {
                                                const isMuhtaclik = isTableMuhtaclikActive(itm.table);
+                                               const targetIncomeCol = itm.table?.incomeColumnIndex !== undefined && itm.table.incomeColumnIndex >= 0
+                                                 ? itm.table.incomeColumnIndex
+                                                 : findIncomeColumnIndex(itm.table?.columns || [], itm.table?.rows);
                                                const isOver = isMuhtaclik && isOverLimitRow(row);
+                                               const isStringRow = isMuhtaclik && !isOver && isStringIncomeRow(row, targetIncomeCol);
+                                               const isHighlight = isOver || isStringRow;
                                                return (
-                                                 <div key={rI} className={`flex gap-2 items-center group/row p-1 rounded-lg transition-colors ${isOver ? 'bg-slate-100/90 border border-slate-300' : ''}`}>
-                                                   <div className={`w-8 shrink-0 text-center text-xs font-bold ${isOver ? 'text-slate-800' : 'text-slate-400'}`}>{rI + 1}</div>
+                                                 <div key={rI} className={`flex gap-2 items-center group/row p-1 rounded-lg transition-colors w-full ${isHighlight ? 'bg-slate-100/90 border border-slate-300' : ''}`}>
+                                                   <div className={`w-8 shrink-0 text-center text-xs font-bold ${isHighlight ? 'text-slate-800' : 'text-slate-400'}`}>{rI + 1}</div>
                                                    {row.map((cell, cI) => {
                                                      const isSira = isSiraColumn(itm.table!.columns[cI]);
                                                      const isCellLimitOver = isMuhtaclik && isOverLimitRow([cell]);
@@ -1670,10 +1689,10 @@ export default function FormEditorPage() {
                                                        <input 
                                                          key={cI}
                                                          readOnly={isSira || isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                         className={`${isSira ? 'w-20 flex-none' : 'flex-1 min-w-[120px]'} text-sm border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none ${
+                                                         className={`${isSira ? 'w-14 shrink-0' : 'flex-1 min-w-[70px]'} text-xs sm:text-sm border rounded p-1.5 sm:p-2 focus:ring-2 focus:ring-blue-500 outline-none ${
                                                            isSira ? 'bg-slate-100 text-center text-slate-500 font-bold' : ''
                                                          } ${
-                                                           isOver ? 'font-bold border-slate-400 bg-white' : 'border-slate-300'
+                                                           isHighlight ? 'font-bold border-slate-400 bg-white' : 'border-slate-300'
                                                          } ${
                                                            isCellLimitOver ? 'text-red-700 font-black bg-red-50/60 border-red-300' : ''
                                                          } disabled:opacity-50`}
@@ -1705,7 +1724,7 @@ export default function FormEditorPage() {
                                                      );
                                                    })}
                                                    {isOver && (
-                                                     <span className="shrink-0 px-2 py-1 text-[10px] font-black uppercase tracking-wider bg-slate-800 text-white rounded shadow-xs">
+                                                     <span className="shrink-0 px-2 py-1 text-[9px] font-black uppercase tracking-wider bg-slate-800 text-white rounded shadow-xs whitespace-nowrap">
                                                        RED (SINIR ÜSTÜ)
                                                      </span>
                                                    )}
@@ -1715,9 +1734,10 @@ export default function FormEditorPage() {
                                                        const newRows = itm.table!.rows.filter((_, i) => i !== rI);
                                                        updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
                                                      }}
-                                                     className="shrink-0 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded w-[100px] text-xs font-bold text-center opacity-0 group-hover/row:opacity-100 transition-opacity disabled:opacity-0"
+                                                     className="shrink-0 p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded text-xs font-bold text-center opacity-0 group-hover/row:opacity-100 transition-opacity disabled:opacity-0"
+                                                     title="Satırı Sil"
                                                    >
-                                                     Satırı Sil
+                                                     <Trash2 className="w-4 h-4" />
                                                    </button>
                                                  </div>
                                                );
