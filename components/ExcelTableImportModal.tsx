@@ -80,9 +80,33 @@ export const isTableMuhtaclikActive = (table?: { rows?: string[][]; enableMuhtac
 };
 
 export const findIncomeColumnIndex = (columns: string[], rows?: string[][]): number => {
+  // Yalnızca belirgin gelir ifadelerini ara (KİŞİ BAŞINA DÜŞEN AYLIK GELİR, GELİR DURUMU vb.)
   let idx = columns.findIndex(col => {
     const c = normalizeTr(col);
-    return c.includes('gelir') || c.includes('aylık') || c.includes('aylik') || c.includes('kişi başı') || c.includes('kisi basi') || c.includes('ücret');
+    // Kesinlikle gelir olmayan sütunları hariç tut
+    if (
+      c.includes('adı') || c.includes('adi') || c.includes('soyad') || 
+      c.includes('talep') || c.includes('karar') || c.includes('sıra') || 
+      c.includes('sira') || c.includes('t.c') || c.includes('tc') || 
+      c.includes('kimlik') || c.includes('tarih') || c.includes('açıklama') || c.includes('aciklama')
+    ) {
+      return false;
+    }
+    return c.includes('kisi basina dusen aylik gelir') ||
+           c.includes('kisi basi aylik gelir') ||
+           c.includes('kisi basina dusen gelir') ||
+           c.includes('kisi basi gelir') ||
+           c.includes('gelir durumu') ||
+           c.includes('aylik gelir') ||
+           c.includes('hane geliri') ||
+           c.includes('net gelir') ||
+           c.includes('toplam gelir') ||
+           c.includes('geliri') ||
+           c === 'gelir' ||
+           c.startsWith('gelir ') ||
+           c.endsWith(' gelir') ||
+           c.includes('ucret') ||
+           c.includes('maas');
   });
   if (idx !== -1) return idx;
 
@@ -103,11 +127,16 @@ export function sortAndProcessTableByIncome(
   muhtaclikLimit: number,
   specifiedIncomeColIdx?: number
 ): { columns: string[]; rows: string[][]; incomeColIdx: number } {
+  // Eğer sütun seçilmemişse (-1) veya belirtilmemişse ve bulunamadıysa tablodaki değerleri ASLA değiştirme
+  if (specifiedIncomeColIdx === -1) {
+    return { columns, rows, incomeColIdx: -1 };
+  }
+
   const incomeColIdx = specifiedIncomeColIdx !== undefined && specifiedIncomeColIdx >= 0
     ? specifiedIncomeColIdx
     : findIncomeColumnIndex(columns, rows);
 
-  if (incomeColIdx < 0) {
+  if (incomeColIdx < 0 || incomeColIdx >= columns.length) {
     return { columns, rows, incomeColIdx: -1 };
   }
 
@@ -224,25 +253,9 @@ export function ExcelTableImportModal({
         setIncomeColIndex(initialIncomeColumnIndex);
       } else {
         // Gelir sütununu tespit et
-        let foundIdx = findIncomeColumnIndex(rawColumns, rawRows);
-
-        if (foundIdx === -1) {
-          // İkinci kontrol: satırlardaki değerlere bakarak parasal veri içeren sütunu bul
-          const colScores = rawColumns.map((_, cIdx) => {
-            let parseSuccess = 0;
-            for (let r = 0; r < Math.min(rawRows.length, 10); r++) {
-              const val = rawRows[r]?.[cIdx];
-              if (val && parseTurkishCurrency(val) !== null) parseSuccess++;
-            }
-            return parseSuccess;
-          });
-          const maxScore = Math.max(...colScores);
-          if (maxScore > 0) {
-            foundIdx = colScores.indexOf(maxScore);
-          }
-        }
-
-        setIncomeColIndex(foundIdx >= 0 ? foundIdx : (rawColumns.length > 3 ? 3 : 0));
+        const foundIdx = findIncomeColumnIndex(rawColumns, rawRows);
+        // Otomatik belirgin sütun bulunamazsa boş (-1) bırak, rastgele sütun seçme
+        setIncomeColIndex(foundIdx >= 0 ? foundIdx : -1);
       }
     }
   }, [isOpen, rawColumns, rawRows, defaultMuhtaclikSiniri, initialEnableLimitCheck, initialIncomeColumnIndex]);
@@ -469,6 +482,7 @@ export function ExcelTableImportModal({
                     value={incomeColIndex}
                     onChange={(e) => setIncomeColIndex(Number(e.target.value))}
                   >
+                    <option value={-1}>-- Sütun Seçiniz (Hesaplama Yapılmaz) --</option>
                     {rawColumns.map((col, idx) => (
                       <option key={idx} value={idx}>
                         Sütun {idx + 1}: {col || '(Başlıksız)'}

@@ -116,9 +116,9 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
                   const isMuhtaclik = isTableMuhtaclikActive(item.table);
                   const targetIncomeCol = item.table?.incomeColumnIndex !== undefined && item.table.incomeColumnIndex >= 0
                     ? item.table.incomeColumnIndex
-                    : findIncomeColumnIndex(item.table?.columns || [], item.table?.rows);
-                  const isOver = isMuhtaclik && isOverLimitRow(row);
-                  const isStringRow = isMuhtaclik && !isOver && isStringIncomeRow(row, targetIncomeCol);
+                    : -1;
+                  const isOver = isMuhtaclik && targetIncomeCol >= 0 && isOverLimitRow(row);
+                  const isStringRow = isMuhtaclik && targetIncomeCol >= 0 && !isOver && isStringIncomeRow(row, targetIncomeCol);
                   const isHighlight = isOver || isStringRow;
                   return (
                     <tr key={ri} className={isHighlight ? 'bg-slate-100 font-bold' : ''}>
@@ -833,10 +833,10 @@ export default function FormEditorPage() {
 
     const targetIncomeCol = table.incomeColumnIndex !== undefined && table.incomeColumnIndex >= 0
       ? table.incomeColumnIndex
-      : findIncomeColumnIndex(table.columns, table.rows);
+      : -1;
 
-    // Yalnızca seçilen muhtaçlık sütununda değişiklik yapıldığında sırala/kontrol et
-    if (targetIncomeCol !== -1 && cI !== targetIncomeCol) {
+    // Sütun seçilmemişse (-1) veya düzenlenen sütun kontrol sütunu değilse hiçbir değişiklik yapma
+    if (targetIncomeCol < 0 || cI !== targetIncomeCol) {
       return;
     }
 
@@ -1479,17 +1479,30 @@ export default function FormEditorPage() {
                                                     const targetCol = currentTable.incomeColumnIndex !== undefined && currentTable.incomeColumnIndex >= 0
                                                       ? currentTable.incomeColumnIndex
                                                       : findIncomeColumnIndex(currentTable.columns, currentTable.rows);
-                                                    const result = sortAndProcessTableByIncome(currentTable.columns, currentTable.rows, muhtaclikLimit, targetCol >= 0 ? targetCol : undefined);
-                                                    updateItem(itm.id, {
-                                                      table: {
-                                                        ...currentTable,
-                                                        columns: result.incomeColIdx !== -1 ? result.columns : currentTable.columns,
-                                                        rows: result.incomeColIdx !== -1 ? result.rows : currentTable.rows,
-                                                        enableMuhtaclikCheck: true,
-                                                        incomeColumnIndex: result.incomeColIdx !== -1 ? result.incomeColIdx : (currentTable.incomeColumnIndex ?? 0)
-                                                      }
-                                                    });
-                                                    toast.success('Bu madde için muhtaçlık değerlendirmesi aktif edildi.');
+
+                                                    if (targetCol >= 0) {
+                                                      const result = sortAndProcessTableByIncome(currentTable.columns, currentTable.rows, muhtaclikLimit, targetCol);
+                                                      updateItem(itm.id, {
+                                                        table: {
+                                                          ...currentTable,
+                                                          columns: result.columns,
+                                                          rows: result.rows,
+                                                          enableMuhtaclikCheck: true,
+                                                          incomeColumnIndex: targetCol
+                                                        }
+                                                      });
+                                                      toast.success(`Muhtaçlık kontrolü aktif edildi (${currentTable.columns[targetCol] || `Sütun ${targetCol + 1}`} sütununa göre).`);
+                                                    } else {
+                                                      // Belirgin gelir sütunu bulunamadı; değerlerin silinmemesi için satırlara dokunmadan boş (-1) olarak aç
+                                                      updateItem(itm.id, {
+                                                        table: {
+                                                          ...currentTable,
+                                                          enableMuhtaclikCheck: true,
+                                                          incomeColumnIndex: -1
+                                                        }
+                                                      });
+                                                      toast.info('Muhtaçlık kontrolü açıldı. Lütfen hesaplama yapılacak sütunu seçiniz.');
+                                                    }
                                                   } else {
                                                     updateItem(itm.id, {
                                                       table: {
@@ -1527,25 +1540,39 @@ export default function FormEditorPage() {
                                                   value={
                                                     itm.table.incomeColumnIndex !== undefined && itm.table.incomeColumnIndex >= 0 && itm.table.incomeColumnIndex < itm.table.columns.length
                                                       ? itm.table.incomeColumnIndex
-                                                      : Math.max(0, findIncomeColumnIndex(itm.table.columns, itm.table.rows))
+                                                      : -1
                                                   }
                                                   onChange={(e) => {
                                                     const newColIdx = Number(e.target.value);
                                                     const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
                                                     const currentTable = itm.table!;
-                                                    const result = sortAndProcessTableByIncome(currentTable.columns, currentTable.rows, muhtaclikLimit, newColIdx);
-                                                    updateItem(itm.id, {
-                                                      table: {
-                                                        ...currentTable,
-                                                        columns: result.columns,
-                                                        rows: result.rows,
-                                                        incomeColumnIndex: newColIdx
-                                                      }
-                                                    });
-                                                    toast.success(`Muhtaçlık kontrol sütunu: Sütun ${newColIdx + 1} (${currentTable.columns[newColIdx] || 'İsimsiz'})`);
+                                                    if (newColIdx >= 0) {
+                                                      const result = sortAndProcessTableByIncome(currentTable.columns, currentTable.rows, muhtaclikLimit, newColIdx);
+                                                      updateItem(itm.id, {
+                                                        table: {
+                                                          ...currentTable,
+                                                          columns: result.columns,
+                                                          rows: result.rows,
+                                                          incomeColumnIndex: newColIdx
+                                                        }
+                                                      });
+                                                      toast.success(`Muhtaçlık kontrol sütunu: Sütun ${newColIdx + 1} (${currentTable.columns[newColIdx] || 'İsimsiz'})`);
+                                                    } else {
+                                                      updateItem(itm.id, {
+                                                        table: {
+                                                          ...currentTable,
+                                                          incomeColumnIndex: -1
+                                                        }
+                                                      });
+                                                    }
                                                   }}
-                                                  className="text-xs font-bold text-slate-800 bg-white border border-emerald-300 rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                                                  className={`text-xs font-bold rounded px-2 py-0.5 outline-none focus:ring-1 cursor-pointer ${
+                                                    itm.table.incomeColumnIndex !== undefined && itm.table.incomeColumnIndex >= 0
+                                                      ? 'text-slate-800 bg-white border border-emerald-300 focus:ring-emerald-500'
+                                                      : 'text-amber-800 bg-amber-50 border border-amber-300 focus:ring-amber-500'
+                                                  }`}
                                                 >
+                                                  <option value={-1}>-- Sütun Seçiniz --</option>
                                                   {itm.table.columns.map((col, cIdx) => (
                                                     <option key={cIdx} value={cIdx}>
                                                       Sütun {cIdx + 1}: {col || '(İsimsiz)'}
@@ -1578,15 +1605,15 @@ export default function FormEditorPage() {
                                                 type="button"
                                                 disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
                                                 onClick={() => {
-                                                  const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
                                                   const targetCol = itm.table!.incomeColumnIndex !== undefined && itm.table!.incomeColumnIndex >= 0
                                                     ? itm.table!.incomeColumnIndex
-                                                    : findIncomeColumnIndex(itm.table!.columns, itm.table!.rows);
-                                                  const result = sortAndProcessTableByIncome(itm.table!.columns, itm.table!.rows, muhtaclikLimit, targetCol >= 0 ? targetCol : undefined);
-                                                  if (result.incomeColIdx === -1) {
-                                                    toast.warning('Gelir sütunu tespit edilemedi. Lütfen "Kontrol Sütunu" açılır menüsünden bir sütun seçin.');
+                                                    : -1;
+                                                  if (targetCol < 0) {
+                                                    toast.warning('Lütfen önce hesaplama yapılacak kontrol sütununu seçiniz.');
                                                     return;
                                                   }
+                                                  const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
+                                                  const result = sortAndProcessTableByIncome(itm.table!.columns, itm.table!.rows, muhtaclikLimit, targetCol);
                                                   updateItem(itm.id, { 
                                                     table: { 
                                                       ...itm.table!, 
@@ -1613,11 +1640,10 @@ export default function FormEditorPage() {
                                             <div className="flex gap-2 items-center w-full">
                                               <div className="w-8 shrink-0 text-center text-xs font-bold text-slate-400">#</div>
                                               {itm.table.columns.map((col, cI) => {
-                                                const isIncomeCol = isTableMuhtaclikActive(itm.table) && (
-                                                  itm.table?.incomeColumnIndex !== undefined && itm.table.incomeColumnIndex >= 0
-                                                    ? itm.table.incomeColumnIndex === cI
-                                                    : findIncomeColumnIndex(itm.table?.columns || [], itm.table?.rows) === cI
-                                                );
+                                                const isIncomeCol = isTableMuhtaclikActive(itm.table) && 
+                                                  itm.table?.incomeColumnIndex !== undefined && 
+                                                  itm.table.incomeColumnIndex >= 0 && 
+                                                  itm.table.incomeColumnIndex === cI;
                                                 return (
                                                   <div key={cI} className={`relative group/col ${isSiraColumn(col) ? 'w-14 shrink-0' : 'flex-1 min-w-[70px]'}`}>
                                                     <input 
@@ -1675,9 +1701,9 @@ export default function FormEditorPage() {
                                                const isMuhtaclik = isTableMuhtaclikActive(itm.table);
                                                const targetIncomeCol = itm.table?.incomeColumnIndex !== undefined && itm.table.incomeColumnIndex >= 0
                                                  ? itm.table.incomeColumnIndex
-                                                 : findIncomeColumnIndex(itm.table?.columns || [], itm.table?.rows);
-                                               const isOver = isMuhtaclik && isOverLimitRow(row);
-                                               const isStringRow = isMuhtaclik && !isOver && isStringIncomeRow(row, targetIncomeCol);
+                                                 : -1;
+                                               const isOver = isMuhtaclik && targetIncomeCol >= 0 && isOverLimitRow(row);
+                                               const isStringRow = isMuhtaclik && targetIncomeCol >= 0 && !isOver && isStringIncomeRow(row, targetIncomeCol);
                                                const isHighlight = isOver || isStringRow;
                                                return (
                                                  <div key={rI} className={`flex gap-2 items-center group/row p-1 rounded-lg transition-colors w-full ${isHighlight ? 'bg-slate-100/90 border border-slate-300' : ''}`}>
