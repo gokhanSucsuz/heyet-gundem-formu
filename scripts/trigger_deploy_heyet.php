@@ -15,3 +15,4 @@ queue_application_deployment(
 );
 
 echo "Deployment queued successfully! UUID: " . $deployment_uuid . "\n";
+
