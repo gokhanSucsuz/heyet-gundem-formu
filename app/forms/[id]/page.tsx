@@ -1827,17 +1827,51 @@ export default function FormEditorPage() {
                                                   </div>
                                                 );
                                               })}
-                                              <button 
-                                                disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                onClick={() => {
-                                                  const newCols = [...itm.table!.columns, `Yeni Sütun`];
-                                                  const newRows = itm.table!.rows.map(r => [...r, '']);
-                                                  updateItem(itm.id, { table: { columns: newCols, rows: newRows } });
-                                                }}
-                                                className="shrink-0 px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-slate-600 whitespace-nowrap disabled:opacity-50"
-                                              >
-                                                + SÜTUN
-                                              </button>
+                                              <div className="flex items-center gap-2 shrink-0">
+                                                <button 
+                                                  type="button"
+                                                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                  onClick={() => {
+                                                    const newCols = [...itm.table!.columns, `Yeni Sütun`];
+                                                    const newRows = itm.table!.rows.map(r => [...r, '']);
+                                                    updateItem(itm.id, { table: { columns: newCols, rows: newRows } });
+                                                  }}
+                                                  className="shrink-0 px-2.5 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg text-slate-700 whitespace-nowrap disabled:opacity-50 transition-all"
+                                                  title="Tabloya yeni sütun ekler"
+                                                >
+                                                  + SÜTUN
+                                                </button>
+
+                                                <button 
+                                                  type="button"
+                                                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                  onClick={() => {
+                                                    const newRow = Array(itm.table!.columns.length).fill('');
+                                                    const newRows = [newRow, ...itm.table!.rows.map(r => [...r])];
+                                                    const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
+                                                    if (siraIdx >= 0) {
+                                                      newRows.forEach((r, idx) => {
+                                                        r[siraIdx] = (idx + 1).toString();
+                                                      });
+                                                    }
+                                                    updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
+                                                    setTimeout(() => {
+                                                      const targetColIdx = itm.table!.columns.findIndex(c => !isSiraColumn(c));
+                                                      const colToFocus = targetColIdx >= 0 ? targetColIdx : 0;
+                                                      const input = document.querySelector<HTMLInputElement>(`input[data-table-cell="${itm.id}-0-${colToFocus}"]`);
+                                                      if (input) {
+                                                        input.focus();
+                                                        input.select();
+                                                      }
+                                                    }, 50);
+                                                  }}
+                                                  className="shrink-0 px-2.5 py-1.5 text-xs font-bold bg-blue-50/90 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg whitespace-nowrap transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1 shadow-2xs"
+                                                  title="Tablonun en başına yeni bir satır ekler"
+                                                >
+                                                  <Plus className="w-3.5 h-3.5" />
+                                                  <span>+ Başa Satır Ekle</span>
+                                                </button>
+                                              </div>
                                             </div>
                                             
                                              {/* Rows */}
@@ -1899,7 +1933,13 @@ export default function FormEditorPage() {
                                                                }
                                                              } else if (!isSaving && (!localForm.isLocked || localForm.isPostponed)) {
                                                                const newRow = Array(itm.table!.columns.length).fill('');
-                                                               const newRows = [...itm.table!.rows, newRow];
+                                                               const newRows = [...itm.table!.rows.map(r => [...r]), newRow];
+                                                               const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
+                                                               if (siraIdx >= 0) {
+                                                                 newRows.forEach((r, idx) => {
+                                                                   r[siraIdx] = (idx + 1).toString();
+                                                                 });
+                                                               }
                                                                updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
                                                                setTimeout(() => {
                                                                  const nextInput = document.querySelector<HTMLInputElement>(`input[data-table-cell="${itm.id}-${rI + 1}-${cI}"]`);
@@ -1919,17 +1959,88 @@ export default function FormEditorPage() {
                                                        RED (SINIR ÜSTÜ)
                                                      </span>
                                                    )}
-                                                   <button 
-                                                     disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                     onClick={() => {
-                                                       const newRows = itm.table!.rows.filter((_, i) => i !== rI);
-                                                       updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
-                                                     }}
-                                                     className="shrink-0 p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-xs font-bold text-center opacity-0 group-hover/row:opacity-100 transition-all disabled:opacity-0"
-                                                     title="Satırı Sil"
-                                                   >
-                                                     <Trash2 className="w-4 h-4" />
-                                                   </button>
+                                                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                                      <button 
+                                                        type="button"
+                                                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                        onClick={() => {
+                                                          const newRow = Array(itm.table!.columns.length).fill('');
+                                                          const newRows = itm.table!.rows.map(r => [...r]);
+                                                          newRows.splice(rI, 0, newRow);
+                                                          const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
+                                                          if (siraIdx >= 0) {
+                                                            newRows.forEach((r, idx) => {
+                                                              r[siraIdx] = (idx + 1).toString();
+                                                            });
+                                                          }
+                                                          updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
+                                                          setTimeout(() => {
+                                                            const targetColIdx = itm.table!.columns.findIndex(c => !isSiraColumn(c));
+                                                            const colToFocus = targetColIdx >= 0 ? targetColIdx : 0;
+                                                            const input = document.querySelector<HTMLInputElement>(`input[data-table-cell="${itm.id}-${rI}-${colToFocus}"]`);
+                                                            if (input) {
+                                                              input.focus();
+                                                              input.select();
+                                                            }
+                                                          }, 50);
+                                                        }}
+                                                        className="px-1.5 py-1 text-[11px] font-bold text-slate-600 hover:text-blue-700 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-lg shadow-2xs transition-all active:scale-95 disabled:opacity-0 flex items-center gap-0.5"
+                                                        title="Bu satırın hemen üstüne yeni satır ekle"
+                                                      >
+                                                        <ArrowUp className="w-3 h-3 text-blue-600" />
+                                                        <span className="hidden sm:inline">Üste</span>
+                                                      </button>
+
+                                                      <button 
+                                                        type="button"
+                                                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                        onClick={() => {
+                                                          const newRow = Array(itm.table!.columns.length).fill('');
+                                                          const newRows = itm.table!.rows.map(r => [...r]);
+                                                          newRows.splice(rI + 1, 0, newRow);
+                                                          const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
+                                                          if (siraIdx >= 0) {
+                                                            newRows.forEach((r, idx) => {
+                                                              r[siraIdx] = (idx + 1).toString();
+                                                            });
+                                                          }
+                                                          updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
+                                                          setTimeout(() => {
+                                                            const targetColIdx = itm.table!.columns.findIndex(c => !isSiraColumn(c));
+                                                            const colToFocus = targetColIdx >= 0 ? targetColIdx : 0;
+                                                            const input = document.querySelector<HTMLInputElement>(`input[data-table-cell="${itm.id}-${rI + 1}-${colToFocus}"]`);
+                                                            if (input) {
+                                                              input.focus();
+                                                              input.select();
+                                                            }
+                                                          }, 50);
+                                                        }}
+                                                        className="px-1.5 py-1 text-[11px] font-bold text-slate-600 hover:text-blue-700 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-lg shadow-2xs transition-all active:scale-95 disabled:opacity-0 flex items-center gap-0.5"
+                                                        title="Bu satırın hemen altına yeni satır ekle"
+                                                      >
+                                                        <ArrowDown className="w-3 h-3 text-blue-600" />
+                                                        <span className="hidden sm:inline">Alta</span>
+                                                      </button>
+
+                                                      <button 
+                                                        type="button"
+                                                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                        onClick={() => {
+                                                          const newRows = itm.table!.rows.filter((_, i) => i !== rI).map(r => [...r]);
+                                                          const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
+                                                          if (siraIdx >= 0) {
+                                                            newRows.forEach((r, idx) => {
+                                                              r[siraIdx] = (idx + 1).toString();
+                                                            });
+                                                          }
+                                                          updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
+                                                        }}
+                                                        className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 rounded-lg text-xs font-bold text-center transition-all disabled:opacity-0"
+                                                        title="Satırı Sil"
+                                                      >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                      </button>
+                                                    </div>
                                                  </div>
                                                );
                                              })}
@@ -1939,8 +2050,23 @@ export default function FormEditorPage() {
                                                 disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
                                                 onClick={() => {
                                                   const newRow = Array(itm.table!.columns.length).fill('');
-                                                  const newRows = [...itm.table!.rows, newRow];
+                                                  const newRows = [...itm.table!.rows.map(r => [...r]), newRow];
+                                                  const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
+                                                  if (siraIdx >= 0) {
+                                                    newRows.forEach((r, idx) => {
+                                                      r[siraIdx] = (idx + 1).toString();
+                                                    });
+                                                  }
                                                   updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
+                                                  setTimeout(() => {
+                                                    const targetColIdx = itm.table!.columns.findIndex(c => !isSiraColumn(c));
+                                                    const colToFocus = targetColIdx >= 0 ? targetColIdx : 0;
+                                                    const input = document.querySelector<HTMLInputElement>(`input[data-table-cell="${itm.id}-${newRows.length - 1}-${colToFocus}"]`);
+                                                    if (input) {
+                                                      input.focus();
+                                                      input.select();
+                                                    }
+                                                  }, 50);
                                                 }}
                                                 className="text-xs font-bold bg-blue-50/90 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg py-1.5 px-3.5 shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
                                               >
