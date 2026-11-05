@@ -420,6 +420,7 @@ export default function FormEditorPage() {
   const isAdmin = personnel?.isAdmin || false;
 
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
+  const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
   const [localForm, setLocalForm] = useState<OfficialForm | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -898,52 +899,135 @@ export default function FormEditorPage() {
   return (
     <AppLayout fullWidth={activeTab === 'editor'}>
       <div className="flex flex-col h-full h-[calc(100vh-2rem)]">
-        {/* Header Actions */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 bg-white p-3 rounded border border-slate-300 shadow-sm mb-6 shrink-0 z-10 relative">
-          <div className="flex items-center gap-3 w-full overflow-hidden">
-            <Link href="/" className="text-slate-400 hover:text-slate-600 shrink-0">
+        {/* Sticky Executive Command Bar */}
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xs rounded-xl px-3 sm:px-4 py-2.5 mb-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 transition-all">
+          {/* Left: Back Link + Title + Live Status */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <Link 
+              href="/" 
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors shrink-0" 
+              title="Gündem Listesine Dön"
+            >
               <ArrowLeft className="w-5 h-5" />
             </Link>
+
             <div className="flex flex-col min-w-0 flex-1">
-              <DebouncedInput 
-                type="text" 
-                value={localForm.title} 
-                disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                onChange={(val) => updateForm({ title: val })}
-                className={`text-sm font-bold bg-transparent border-none focus:ring-1 focus:ring-blue-200 rounded p-0.5 text-slate-800 placeholder-slate-400 uppercase outline-none truncate w-full ${(localForm.isLocked && !localForm.isPostponed) || isSaving ? 'cursor-not-allowed opacity-70' : ''}`}
-                placeholder="Form Başlığı"
-              />
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">DÜZENLEME MODU</span>
+              <div className="flex items-center gap-2">
+                <DebouncedInput 
+                  type="text" 
+                  value={localForm.title} 
+                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                  onChange={(val) => updateForm({ title: val })}
+                  className={`text-sm font-bold bg-transparent border border-transparent hover:border-slate-200 focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1.5 py-0.5 text-slate-900 placeholder-slate-400 uppercase outline-none truncate w-full transition-all ${(localForm.isLocked && !localForm.isPostponed) || isSaving ? 'cursor-not-allowed opacity-70' : ''}`}
+                  placeholder="Form Başlığı Giriniz..."
+                />
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {activeTab === 'editor' ? 'DÜZENLEME MODU' : 'BASKI ÖNİZLEME'}
+                </span>
+                <span className="text-slate-300">•</span>
+                {isSaving ? (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                    <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
+                    Kaydediliyor...
+                  </span>
+                ) : isDirty ? (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    Kaydedilmemiş Değişiklikler
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <CheckCircle className="w-3 h-3 text-emerald-600" />
+                    Kaydedildi
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0 sm:ml-4 border-t border-slate-100 sm:border-0 pt-2 sm:pt-0">
-
-            <div className="bg-slate-100 p-1 rounded flex shrink-0">
+          {/* Center: Segmented View Pill */}
+          <div className="flex items-center justify-center shrink-0">
+            <div className="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200/80">
               <button
                 onClick={() => setActiveTab('editor')}
-                className={`px-3 py-1.5 text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 ${
-                  activeTab === 'editor' ? 'bg-white text-blue-600 shadow-sm rounded' : 'text-slate-500 hover:bg-slate-200'
+                className={`px-3 sm:px-4 py-1.5 text-xs font-bold uppercase transition-all flex items-center gap-1.5 rounded-lg ${
+                  activeTab === 'editor' 
+                    ? 'bg-white text-blue-700 shadow-xs font-extrabold' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
               >
                 <Edit3 className="w-3.5 h-3.5" />
-                <span className="hidden sm:block">DÜZENLE</span>
+                <span>DÜZENLE</span>
               </button>
               {isAdmin && (
                 <button
                   onClick={() => setActiveTab('preview')}
-                  className={`px-3 py-1.5 text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 ${
-                    activeTab === 'preview' ? 'bg-white text-blue-600 shadow-sm rounded' : 'text-slate-500 hover:bg-slate-200'
+                  className={`px-3 sm:px-4 py-1.5 text-xs font-bold uppercase transition-all flex items-center gap-1.5 rounded-lg ${
+                    activeTab === 'preview' 
+                      ? 'bg-white text-blue-700 shadow-xs font-extrabold' 
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                   }`}
                 >
                   <Eye className="w-3.5 h-3.5" />
-                  <span className="hidden sm:block">ÖNİZLE</span>
+                  <span>ÖNİZLE</span>
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Right: Quick Context Actions */}
+          <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+            {activeTab === 'editor' && (
+              <>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                  className="px-2.5 sm:px-3 py-1.5 text-xs font-bold uppercase rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
+                  title="Word (.docx) Dosyasından Gündem Maddeleri Aktar"
+                >
+                  <FileUp className="w-3.5 h-3.5 text-blue-600" />
+                  <span className="hidden xl:inline">Word'den Al</span>
+                </button>
+
+                <button
+                  onClick={() => setIsReorderModalOpen(true)}
+                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed) || !localForm.items?.length}
+                  className="px-2.5 sm:px-3 py-1.5 text-xs font-bold uppercase rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
+                  title="Maddeleri Hızlıca Sırala"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-600" />
+                  <span className="hidden xl:inline">Sırala</span>
+                </button>
+
+                <button
+                  onClick={() => addItem('numbered')}
+                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                  className="px-3 py-1.5 text-xs font-bold uppercase rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-xs shadow-blue-600/20 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Madde Ekle</span>
+                </button>
+
+                <button
+                  onClick={saveToCloud}
+                  disabled={isSaving || !isDirty}
+                  className={`px-3.5 py-1.5 text-xs font-bold uppercase rounded-lg flex items-center gap-1.5 shadow-xs transition-all active:scale-95 ${
+                    isDirty && !isSaving
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                      : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+                  }`}
+                  title={isDirty ? 'Değişiklikleri Buluta Kaydet' : 'Tüm Değişiklikler Kaydedildi'}
+                >
+                  {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  <span>Kaydet</span>
+                </button>
+              </>
+            )}
 
             {activeTab === 'preview' && (
-              <div className="flex gap-2">
+              <>
                 {!localForm.isLocked && (
                   <button 
                     onClick={() => {
@@ -968,10 +1052,10 @@ export default function FormEditorPage() {
                       });
                     }}
                     disabled={isSaving}
-                    className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded font-bold text-[10px] shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                    className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg font-bold text-xs shadow-xs transition-all active:scale-95 disabled:opacity-50"
                   >
                     <Lock className="w-3.5 h-3.5" />
-                    <span className="hidden sm:block">KESİNLEŞTİR</span>
+                    <span>KESİNLEŞTİR</span>
                   </button>
                 )}
                 {localForm.isLocked && !localForm.isPostponed && (
@@ -985,23 +1069,23 @@ export default function FormEditorPage() {
                     }}
                     disabled={isSaving || !canUnlock()}
                     title={!canUnlock() ? 'Toplantı tarihinden 2 gün geçtiği için kilit açılamaz' : 'Kilidi Aç'}
-                    className={`flex items-center gap-1.5 ${!canUnlock() ? 'bg-slate-400 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700 active:scale-95'} text-white px-3 py-1.5 rounded font-bold text-[10px] shadow-sm transition-all disabled:opacity-50`}
+                    className={`flex items-center gap-1.5 ${!canUnlock() ? 'bg-slate-400 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700 active:scale-95'} text-white px-3 py-1.5 rounded-lg font-bold text-xs shadow-xs transition-all disabled:opacity-50`}
                   >
                     <Unlock className="w-3.5 h-3.5" />
-                    <span className="hidden sm:block">KİLİDİ AÇ</span>
+                    <span>KİLİDİ AÇ</span>
                   </button>
                 )}
                 <button 
                   onClick={() => handlePrint()}
-                  className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded font-bold text-[10px] shadow-sm transition-all active:scale-95"
+                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg font-bold text-xs shadow-xs shadow-emerald-600/20 transition-all active:scale-95"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span className="hidden sm:block">YAZDIR</span>
+                  <span>YAZDIR</span>
                 </button>
-              </div>
+              </>
             )}
           </div>
-        </div>
+        </header>
 
         {/* Content Area with Sidebar */}
         <div className="flex-1 flex gap-8 overflow-hidden relative">
@@ -1089,123 +1173,183 @@ export default function FormEditorPage() {
             )}
             {activeTab === 'editor' ? (
               <div className="w-full space-y-6 px-1 sm:px-2">
-                {/* Metadata Section */}
+                {/* Metadata Section - Collapsible Accordion */}
                 {isAdmin && (
-                <div id="header" className={`bg-white p-5 rounded border border-slate-300 shadow-sm space-y-4 scroll-mt-20 transition-opacity ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase">Resmi Kayıt Bilgileri</h3>
-                    <div className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                      <input 
-                        type="checkbox" 
-                        id="isPostponed"
-                        className="rounded text-blue-700 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
-                        checked={localForm.isPostponed || false}
-                        disabled={isSaving}
-                        onChange={(e) => updateForm({ isPostponed: e.target.checked })}
-                      />
-                      <label htmlFor="isPostponed" className="text-[11px] font-bold text-blue-700 cursor-pointer select-none uppercase">
-                        Toplantı Ertelendi
-                      </label>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <div className="flex items-center gap-1 mb-1">
-                        <label className="text-xs font-bold text-slate-500 uppercase block">Karar Tarihi</label>
-                        {!localForm.isPostponed && <Lock className="w-3 h-3 text-slate-400" />}
+                  <div id="header" className={`bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden scroll-mt-20 transition-all ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {/* Collapsed Header / Summary Bar */}
+                    <div 
+                      onClick={() => setIsMetadataExpanded(!isMetadataExpanded)}
+                      className="px-4 py-3 bg-slate-50/70 hover:bg-slate-100/80 cursor-pointer flex flex-wrap items-center justify-between gap-3 select-none transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
+                        <div className="flex items-center gap-1.5 font-bold text-xs text-slate-700 uppercase tracking-tight">
+                          <FileText className="w-4 h-4 text-blue-600" />
+                          <span>Resmi Form Bilgileri</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                          <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-0.5 rounded-md font-semibold text-slate-700">
+                            <span className="text-[10px] font-bold text-slate-400">Tarih:</span>
+                            {localForm.decisionDate ? new Date(localForm.decisionDate).toLocaleDateString('tr-TR') : 'Belirtilmedi'}
+                          </span>
+                          <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-0.5 rounded-md font-semibold text-slate-700">
+                            <span className="text-[10px] font-bold text-slate-400">Saat:</span>
+                            {localForm.decisionTime || '--:--'}
+                          </span>
+                          <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-0.5 rounded-md font-semibold text-slate-700">
+                            <span className="text-[10px] font-bold text-slate-400">Karar No:</span>
+                            {localForm.decisionNo || '-'}
+                          </span>
+                          {localForm.isPostponed && (
+                            <span className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[10px] px-2 py-0.5 rounded-md uppercase">
+                              Toplantı Ertelendi
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <input 
-                        type="date"
-                        disabled={isSaving || !localForm.isPostponed}
-                        className={`w-full text-sm border border-slate-300 rounded p-2 outline-none transition-all ${!localForm.isPostponed || isSaving ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 border-blue-200'}`}
-                        value={localForm.decisionDate || ''}
-                        onChange={(e) => {
-                          const newDate = e.target.value;
-                          const formattedDate = newDate ? new Date(newDate).toLocaleDateString('tr-TR') : '.../.../20...';
-                          const newTitle = `${formattedDate} - Karar No: ${localForm.decisionNo || '...'}`;
-                          updateForm({ 
-                            decisionDate: newDate, 
-                            headerLine4: newTitle, 
-                            title: newTitle 
-                          });
-                        }}
-                      />
-                      {!localForm.isPostponed && <p className="text-[10px] text-slate-400 mt-1 italic">* Değiştirmek için 'Ertelendi' seçiniz.</p>}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1 mb-1">
-                        <label className="text-xs font-bold text-slate-500 uppercase block">Karar Saati</label>
-                        {!localForm.isPostponed && <Lock className="w-3 h-3 text-slate-400" />}
-                      </div>
-                      <input 
-                        type="time"
-                        disabled={isSaving || !localForm.isPostponed}
-                        className={`w-full text-sm border border-slate-300 rounded p-2 outline-none transition-all ${!localForm.isPostponed || isSaving ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 border-blue-200'}`}
-                        value={localForm.decisionTime || ''}
-                        onChange={(e) => updateForm({ decisionTime: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1 mb-1">
-                        <label className="text-xs font-bold text-slate-500 uppercase block">Karar No</label>
-                        {!localForm.isPostponed && <Lock className="w-3 h-3 text-slate-400" />}
-                      </div>
-                      <DebouncedInput 
-                        className={`w-full text-sm border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none ${!localForm.isPostponed || isSaving ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 border-blue-200'}`} 
-                        value={localForm.decisionNo || ''}
-                        disabled={isSaving || !localForm.isPostponed}
-                        onChange={(val) => {
-                          const formattedDate = localForm.decisionDate ? new Date(localForm.decisionDate).toLocaleDateString('tr-TR') : '.../.../20...';
-                          const newTitle = `${formattedDate} - Karar No: ${val || '...'}`;
-                          updateForm({ 
-                            decisionNo: val, 
-                            headerLine4: newTitle, 
-                            title: newTitle 
-                          });
-                        }}
-                      />
-                      {!localForm.isPostponed && <p className="text-[10px] text-slate-400 mt-1 italic">* Değiştirmek için 'Ertelendi' seçiniz.</p>}
-                    </div>
-                  </div>
 
-                  <div className="pt-4 border-t border-slate-100">
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-slate-500 uppercase block">Kurum Başlığı (T.C. ...)</label>
                       <div className="flex items-center gap-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">Satır Aralığı:</label>
-                        <select 
-                          className="text-[10px] border border-slate-300 rounded px-1.5 py-0.5"
-                          disabled={isSaving}
-                          value={localForm.layout?.headerLineSpacing || 'normal'}
-                          onChange={(e) => updateForm({ layout: { ...localForm.layout!, headerLineSpacing: e.target.value } })}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsMetadataExpanded(!isMetadataExpanded);
+                          }}
+                          className="flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-blue-700 bg-white hover:bg-blue-50/50 border border-slate-200 hover:border-blue-200 px-3 py-1.5 rounded-lg shadow-2xs transition-all active:scale-95"
                         >
-                          <option value="0.8">Çok Dar</option>
-                          <option value="1">Dar</option>
-                          <option value="normal">Normal</option>
-                          <option value="1.5">Geniş</option>
-                        </select>
+                          {isMetadataExpanded ? (
+                            <>
+                              <ChevronUp className="w-3.5 h-3.5" />
+                              <span>Bilgileri Gizle</span>
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-3.5 h-3.5" />
+                              <span>Bilgileri Düzenle / Kurum Başlığı</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     </div>
-                    <RichTextEditor 
-                      value={localForm.headerTop}
-                      disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                      onChange={(val) => updateForm({ headerTop: val })}
-                      placeholder="Başlık metnini girin..."
-                    />
-                  </div>
 
-                  <div className="pt-4">
-                    <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Tarih / Karar No Görünümü (Belge Üzerindeki)</label>
-                    <DebouncedInput 
-                      className={`w-full text-sm border border-slate-300 rounded p-2 outline-none bg-slate-50 text-slate-400 cursor-not-allowed`} 
-                      value={localForm.headerLine4}
-                      disabled={true}
-                      onChange={(val) => updateForm({ headerLine4: val, title: val })}
-                      placeholder="Otomatik oluşturulur..."
-                    />
+                    {/* Expanded Detail Panel */}
+                    {isMetadataExpanded && (
+                      <div className="p-5 border-t border-slate-200/80 space-y-4 bg-white animate-in fade-in-50 duration-200">
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Toplantı & Karar Parametreleri</span>
+                          <div className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                            <input 
+                              type="checkbox" 
+                              id="isPostponed"
+                              className="rounded text-blue-700 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                              checked={localForm.isPostponed || false}
+                              disabled={isSaving}
+                              onChange={(e) => updateForm({ isPostponed: e.target.checked })}
+                            />
+                            <label htmlFor="isPostponed" className="text-[11px] font-bold text-blue-700 cursor-pointer select-none uppercase">
+                              Toplantı Ertelendi
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                          <div>
+                            <div className="flex items-center gap-1 mb-1">
+                              <label className="text-xs font-bold text-slate-600 uppercase block">Karar Tarihi</label>
+                              {!localForm.isPostponed && <Lock className="w-3 h-3 text-slate-400" />}
+                            </div>
+                            <input 
+                              type="date"
+                              disabled={isSaving || !localForm.isPostponed}
+                              className={`w-full text-sm border border-slate-200 rounded-lg p-2 outline-none transition-all ${!localForm.isPostponed || isSaving ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 border-blue-200 bg-white'}`}
+                              value={localForm.decisionDate || ''}
+                              onChange={(e) => {
+                                const newDate = e.target.value;
+                                const formattedDate = newDate ? new Date(newDate).toLocaleDateString('tr-TR') : '.../.../20...';
+                                const newTitle = `${formattedDate} - Karar No: ${localForm.decisionNo || '...'}`;
+                                updateForm({ 
+                                  decisionDate: newDate, 
+                                  headerLine4: newTitle, 
+                                  title: newTitle 
+                                });
+                              }}
+                            />
+                            {!localForm.isPostponed && <p className="text-[10px] text-slate-400 mt-1 italic">* Değiştirmek için 'Ertelendi' seçiniz.</p>}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1 mb-1">
+                              <label className="text-xs font-bold text-slate-600 uppercase block">Karar Saati</label>
+                              {!localForm.isPostponed && <Lock className="w-3 h-3 text-slate-400" />}
+                            </div>
+                            <input 
+                              type="time"
+                              disabled={isSaving || !localForm.isPostponed}
+                              className={`w-full text-sm border border-slate-200 rounded-lg p-2 outline-none transition-all ${!localForm.isPostponed || isSaving ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 border-blue-200 bg-white'}`}
+                              value={localForm.decisionTime || ''}
+                              onChange={(e) => updateForm({ decisionTime: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1 mb-1">
+                              <label className="text-xs font-bold text-slate-600 uppercase block">Karar No</label>
+                              {!localForm.isPostponed && <Lock className="w-3 h-3 text-slate-400" />}
+                            </div>
+                            <DebouncedInput 
+                              className={`w-full text-sm border border-slate-200 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none ${!localForm.isPostponed || isSaving ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 border-blue-200 bg-white'}`} 
+                              value={localForm.decisionNo || ''}
+                              disabled={isSaving || !localForm.isPostponed}
+                              onChange={(val) => {
+                                const formattedDate = localForm.decisionDate ? new Date(localForm.decisionDate).toLocaleDateString('tr-TR') : '.../.../20...';
+                                const newTitle = `${formattedDate} - Karar No: ${val || '...'}`;
+                                updateForm({ 
+                                  decisionNo: val, 
+                                  headerLine4: newTitle, 
+                                  title: newTitle 
+                                });
+                              }}
+                            />
+                            {!localForm.isPostponed && <p className="text-[10px] text-slate-400 mt-1 italic">* Değiştirmek için 'Ertelendi' seçiniz.</p>}
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-slate-100">
+                          <div className="flex justify-between items-center mb-2">
+                            <label className="text-xs font-bold text-slate-600 uppercase block">Kurum Başlığı (T.C. ...)</label>
+                            <div className="flex items-center gap-2">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase">Satır Aralığı:</label>
+                              <select 
+                                className="text-[11px] border border-slate-200 rounded-md px-2 py-0.5 bg-white text-slate-700"
+                                disabled={isSaving}
+                                value={localForm.layout?.headerLineSpacing || 'normal'}
+                                onChange={(e) => updateForm({ layout: { ...localForm.layout!, headerLineSpacing: e.target.value } })}
+                              >
+                                <option value="0.8">Çok Dar</option>
+                                <option value="1">Dar</option>
+                                <option value="normal">Normal</option>
+                                <option value="1.5">Geniş</option>
+                              </select>
+                            </div>
+                          </div>
+                          <RichTextEditor 
+                            value={localForm.headerTop}
+                            disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                            onChange={(val) => updateForm({ headerTop: val })}
+                            placeholder="Başlık metnini girin..."
+                          />
+                        </div>
+
+                        <div className="pt-2">
+                          <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Tarih / Karar No Görünümü (Belge Üzerindeki)</label>
+                          <DebouncedInput 
+                            className="w-full text-sm border border-slate-200 rounded-lg p-2 outline-none bg-slate-50 text-slate-500 cursor-not-allowed" 
+                            value={localForm.headerLine4}
+                            disabled={true}
+                            onChange={(val) => updateForm({ headerLine4: val, title: val })}
+                            placeholder="Otomatik oluşturulur..."
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
                 )}
 
                 {/* Items Section */}
@@ -1714,13 +1858,14 @@ export default function FormEditorPage() {
                                                      return (
                                                        <input 
                                                          key={cI}
+                                                         data-table-cell={`${itm.id}-${rI}-${cI}`}
                                                          readOnly={isSira || isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                         className={`${isSira ? 'w-14 shrink-0' : 'flex-1 min-w-[70px]'} text-xs sm:text-sm border rounded p-1.5 sm:p-2 focus:ring-2 focus:ring-blue-500 outline-none ${
-                                                           isSira ? 'bg-slate-100 text-center text-slate-500 font-bold' : ''
+                                                         className={`${isSira ? 'w-14 shrink-0' : 'flex-1 min-w-[70px]'} text-xs sm:text-sm border rounded-lg p-1.5 sm:p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all ${
+                                                           isSira ? 'bg-slate-100 text-center text-slate-600 font-bold border-slate-200' : ''
                                                          } ${
-                                                           isHighlight ? 'font-bold border-slate-400 bg-white' : 'border-slate-300'
+                                                           isHighlight ? 'font-bold border-slate-300 bg-white' : 'border-slate-200 bg-white hover:border-slate-300'
                                                          } ${
-                                                           isCellLimitOver ? 'text-red-700 font-black bg-red-50/60 border-red-300' : ''
+                                                           isCellLimitOver ? 'text-red-700 font-black bg-red-50/70 border-red-300' : ''
                                                          } disabled:opacity-50`}
                                                          value={isSira ? (rI + 1).toString() : cell}
                                                          onFocus={(e) => {
@@ -1743,7 +1888,27 @@ export default function FormEditorPage() {
                                                          onKeyDown={(e) => {
                                                            if (e.key === 'Enter') {
                                                              e.preventDefault();
-                                                             (e.target as HTMLInputElement).blur();
+                                                             handleCellBlurOrSubmit(itm.id, itm.table!, rI, cI, e.currentTarget.value);
+                                                             
+                                                             // Enter ile aynı sütunda bir alt satıra geçiş, son satırda ise otomatik yeni satır oluşturma
+                                                             if (rI < itm.table!.rows.length - 1) {
+                                                               const nextInput = document.querySelector<HTMLInputElement>(`input[data-table-cell="${itm.id}-${rI + 1}-${cI}"]`);
+                                                               if (nextInput) {
+                                                                 nextInput.focus();
+                                                                 nextInput.select();
+                                                               }
+                                                             } else if (!isSaving && (!localForm.isLocked || localForm.isPostponed)) {
+                                                               const newRow = Array(itm.table!.columns.length).fill('');
+                                                               const newRows = [...itm.table!.rows, newRow];
+                                                               updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
+                                                               setTimeout(() => {
+                                                                 const nextInput = document.querySelector<HTMLInputElement>(`input[data-table-cell="${itm.id}-${rI + 1}-${cI}"]`);
+                                                                 if (nextInput) {
+                                                                   nextInput.focus();
+                                                                   nextInput.select();
+                                                                 }
+                                                               }, 50);
+                                                             }
                                                            }
                                                          }}
                                                        />
@@ -1760,7 +1925,7 @@ export default function FormEditorPage() {
                                                        const newRows = itm.table!.rows.filter((_, i) => i !== rI);
                                                        updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
                                                      }}
-                                                     className="shrink-0 p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded text-xs font-bold text-center opacity-0 group-hover/row:opacity-100 transition-opacity disabled:opacity-0"
+                                                     className="shrink-0 p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-xs font-bold text-center opacity-0 group-hover/row:opacity-100 transition-all disabled:opacity-0"
                                                      title="Satırı Sil"
                                                    >
                                                      <Trash2 className="w-4 h-4" />
@@ -1777,9 +1942,10 @@ export default function FormEditorPage() {
                                                   const newRows = [...itm.table!.rows, newRow];
                                                   updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
                                                 }}
-                                                className="text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded p-2 px-4 shadow-sm disabled:opacity-50"
+                                                className="text-xs font-bold bg-blue-50/90 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg py-1.5 px-3.5 shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
                                               >
-                                                + SATIR Ekle
+                                                <span>+ Satır Ekle</span>
+                                                <span className="text-[10px] font-normal text-blue-500 hidden sm:inline">(veya son satırda Enter)</span>
                                               </button>
                                             </div>
                                           </div>
