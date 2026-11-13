@@ -31,7 +31,7 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        version: 'resilient-v2',
+        version: 'resilient-v3',
         key: getKeyInfo(),
         forms: { total: docs.length, decrypted: ok },
         sampleDetails,

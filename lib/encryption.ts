@@ -29,6 +29,13 @@ const CANDIDATE_KEYS: string[] = Array.from(
       'build-time-fallback-never-use-in-prod',
       'sdfjh9879+^%^%FDGFD43543ıou87876.,%((fd74ghdDfdgFTJY+%8778987ÜİkşkaQQqqu8uy74n%&+%&/kjhuıyRt78%rt54/',
       'FDS%+6+^%+^&%+/&%RUFGbvddYTYgfde9878.,.,.,*YH&/y64gr6yuhjkjklsfds%+&__-?09786OOPPLJHN:bnhgvcf9Y%/%/&&978%+&%++^575687998//&+^popoxzaQW^+3asdASzZWQ',
+      'FDS%+6+^%+^&%+/&%RUFGYH&/y64gr6yuhjkjklsfds%+&__-?09786OOPPLJHN:bnhgvcf9Y%/%/&&978%+&%++^575687998//&+^popoxzaQW^+3asdASzZWQ',
+      'a8fd505fec80f36bb63056264ac254172a00b728ab8a3b9115580278fdf4d346',
+      '5ecd841f5a9fe8e49e287d02462d2f832177b252b0c7cc37d13abffc020ec55c',
+      'acb6847010f6d2060e9fc8d875300e51d549e8732c4be718123746c231789ad9',
+      '1b9e52f8ff23469d410b671e7e20614980da72a3e37c64c06972ca27c838c5a3',
+      'your-32-byte-hex-key-here',
+      'default-super-secret-key-1234567890',
     ].filter(Boolean) as string[]
   )
 );
@@ -37,8 +44,11 @@ const CANDIDATE_SALTS: string[] = Array.from(
   new Set(
     [
       RAW_SALT,
+      'c4e6f8a0b2d4e6f8a0b2c4e6f8a0b2c4',
       'build-time-fallback-salt',
       'edirne-sydv-salt',
+      'your-16-byte-hex-salt-here',
+      'edirne-sydv-secret-key-2024',
     ].filter(Boolean) as string[]
   )
 );
