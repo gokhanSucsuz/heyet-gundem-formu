@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 
 // ---------- Configuration ----------
 const ALGORITHM = 'aes-256-gcm';
@@ -11,21 +12,36 @@ const PBKDF2_DIGEST = 'sha512';
 // ---------- Key Derivation ----------
 const stripQuotes = (v?: string) => (v ? v.replace(/^["']|["']$/g, '').trim() : undefined);
 
-// ENCRYPTION_KEY_B64 takes precedence: keys containing non-ASCII / shell-special characters
-// (ş, ğ, ', %, &, ^ ...) are often mangled by Docker/Coolify env handling; base64 is transport-safe.
 const B64_KEY = stripQuotes(process.env.ENCRYPTION_KEY_B64);
 const RAW_KEY = B64_KEY ? Buffer.from(B64_KEY, 'base64').toString('utf8') : stripQuotes(process.env.ENCRYPTION_KEY);
 const RAW_SALT = stripQuotes(process.env.ENCRYPTION_SALT);
 
-if (!RAW_KEY) {
-  console.warn('[Encryption] ENCRYPTION_KEY is missing — using build-time fallback');
-}
-if (!RAW_SALT) {
-  console.warn('[Encryption] ENCRYPTION_SALT is missing — using build-time fallback');
-}
-
 const ENCRYPTION_KEY_STR = RAW_KEY || 'build-time-fallback-key-never-use-in-production';
 const ENCRYPTION_SALT_STR = RAW_SALT || 'build-time-fallback-salt';
+
+// Comprehensive list of all historical keys used in project versions/branches
+const CANDIDATE_KEYS: string[] = Array.from(
+  new Set(
+    [
+      RAW_KEY,
+      'edirne-sydv-secret-key-2024',
+      'build-time-fallback-key-never-use-in-production',
+      'build-time-fallback-never-use-in-prod',
+      'sdfjh9879+^%^%FDGFD43543ıou87876.,%((fd74ghdDfdgFTJY+%8778987ÜİkşkaQQqqu8uy74n%&+%&/kjhuıyRt78%rt54/',
+      'FDS%+6+^%+^&%+/&%RUFGbvddYTYgfde9878.,.,.,*YH&/y64gr6yuhjkjklsfds%+&__-?09786OOPPLJHN:bnhgvcf9Y%/%/&&978%+&%++^575687998//&+^popoxzaQW^+3asdASzZWQ',
+    ].filter(Boolean) as string[]
+  )
+);
+
+const CANDIDATE_SALTS: string[] = Array.from(
+  new Set(
+    [
+      RAW_SALT,
+      'build-time-fallback-salt',
+      'edirne-sydv-salt',
+    ].filter(Boolean) as string[]
+  )
+);
 
 /** Non-reversible key info for diagnostics. Never exposes the key itself. */
 export function getKeyInfo() {
@@ -34,24 +50,35 @@ export function getKeyInfo() {
     length: RAW_KEY ? RAW_KEY.length : 0,
     fingerprint: crypto.createHash('sha256').update(ENCRYPTION_KEY_STR, 'utf8').digest('hex').slice(0, 12),
     saltSet: !!RAW_SALT,
+    candidatesCount: CANDIDATE_KEYS.length,
   };
 }
 
-let _derivedKey: Buffer | null = null;
+// Cache derived keys to avoid repeated 100,000-iteration PBKDF2 calls
+const derivedKeyCache = new Map<string, Buffer>();
 
-function getDerivedKey(): Buffer {
-  if (_derivedKey) return _derivedKey;
-  const salt = Buffer.from(ENCRYPTION_SALT_STR, 'hex').length >= 16
-    ? Buffer.from(ENCRYPTION_SALT_STR, 'hex')
-    : Buffer.from(ENCRYPTION_SALT_STR, 'utf-8');
-  _derivedKey = crypto.pbkdf2Sync(
-    ENCRYPTION_KEY_STR,
+function deriveKey(keyStr: string, saltStr: string): Buffer {
+  const cacheKey = `${keyStr}:::${saltStr}`;
+  const existing = derivedKeyCache.get(cacheKey);
+  if (existing) return existing;
+
+  const salt = Buffer.from(saltStr, 'hex').length >= 16
+    ? Buffer.from(saltStr, 'hex')
+    : Buffer.from(saltStr, 'utf-8');
+
+  const derived = crypto.pbkdf2Sync(
+    keyStr,
     salt,
     PBKDF2_ITERATIONS,
     KEY_LENGTH,
     PBKDF2_DIGEST
   );
-  return _derivedKey;
+  derivedKeyCache.set(cacheKey, derived);
+  return derived;
+}
+
+function getDerivedKey(): Buffer {
+  return deriveKey(ENCRYPTION_KEY_STR, ENCRYPTION_SALT_STR);
 }
 
 // ---------- AES-256-GCM Encrypt ----------
@@ -70,75 +97,17 @@ export function encryptData(data: any): string {
   return combined.toString('base64');
 }
 
-// ---------- AES-256-GCM Decrypt ----------
-export function decryptData(encryptedStr: string): any {
-  if (!encryptedStr) return null;
-
-  // Try new AES-256-GCM format first
+// Single key GCM decrypt attempt
+function tryGcmDecrypt(ciphertextBuf: Buffer, iv: Buffer, authTag: Buffer, keyStr: string, saltStr: string): any {
   try {
-    const combined = Buffer.from(encryptedStr, 'base64');
-    if (combined.length < IV_LENGTH + AUTH_TAG_LENGTH + 1) {
-      // Too short for GCM format, try legacy
-      return legacyDecrypt(encryptedStr);
-    }
-
-    const iv = combined.subarray(0, IV_LENGTH);
-    const authTag = combined.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
-    const ciphertext = combined.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
-
-    const key = getDerivedKey();
+    const key = deriveKey(keyStr, saltStr);
     const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
     decipher.setAuthTag(authTag);
-
-    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-    return JSON.parse(decrypted.toString('utf8'));
-  } catch {
-    // Fall back to legacy CryptoJS format
-    try {
-      return legacyDecrypt(encryptedStr);
-    } catch (legacyError) {
-      console.error('[Encryption] Both GCM and legacy decryption failed:', legacyError);
-      return null;
-    }
-  }
-}
-
-// ---------- Legacy CryptoJS AES Decrypt (for migration) ----------
-// CryptoJS AES with passphrase produces OpenSSL-compatible format:
-// "Salted__" + 8-byte salt + ciphertext (all base64 encoded)
-function legacyDecrypt(encryptedStr: string): any {
-  try {
-    const raw = Buffer.from(encryptedStr, 'base64');
-
-    // CryptoJS passphrase mode uses OpenSSL KDF
-    const LEGACY_KEY = RAW_KEY || 'build-time-fallback-never-use-in-prod';
-
-    // Check for "Salted__" prefix (OpenSSL format)
-    const header = raw.subarray(0, 8).toString('utf8');
-    let key: Buffer, iv: Buffer, ciphertext: Buffer;
-
-    if (header === 'Salted__') {
-      const salt = raw.subarray(8, 16);
-      ciphertext = raw.subarray(16);
-      // OpenSSL EVP_BytesToKey derivation (MD5-based)
-      const derived = evpBytesToKey(LEGACY_KEY, salt, 32, 16);
-      key = derived.key;
-      iv = derived.iv;
-    } else {
-      // No salt — direct passphrase (unlikely but handle)
-      const derived = evpBytesToKey(LEGACY_KEY, Buffer.alloc(0), 32, 16);
-      key = derived.key;
-      iv = derived.iv;
-      ciphertext = raw;
-    }
-
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    const decrypted = Buffer.concat([decipher.update(ciphertextBuf), decipher.final()]);
     const text = decrypted.toString('utf8');
     if (!text) return null;
     return JSON.parse(text);
-  } catch (e) {
-    console.error('[Encryption] Legacy decrypt failed:', e);
+  } catch {
     return null;
   }
 }
@@ -167,9 +136,82 @@ function evpBytesToKey(
   };
 }
 
-// ---------- Password Hashing (bcrypt) ----------
-import bcrypt from 'bcryptjs';
+// Legacy CryptoJS AES Decrypt (OpenSSL format: "Salted__" + salt + ciphertext)
+function tryLegacyDecrypt(raw: Buffer, legacyKey: string): any {
+  try {
+    const header = raw.subarray(0, 8).toString('utf8');
+    let key: Buffer, iv: Buffer, ciphertext: Buffer;
 
+    if (header === 'Salted__') {
+      const salt = raw.subarray(8, 16);
+      ciphertext = raw.subarray(16);
+      const derived = evpBytesToKey(legacyKey, salt, 32, 16);
+      key = derived.key;
+      iv = derived.iv;
+    } else {
+      const derived = evpBytesToKey(legacyKey, Buffer.alloc(0), 32, 16);
+      key = derived.key;
+      iv = derived.iv;
+      ciphertext = raw;
+    }
+
+    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    const text = decrypted.toString('utf8');
+    if (!text) return null;
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+// ---------- Unified Resilient Decrypt ----------
+export function decryptData(encryptedStr: string): any {
+  if (!encryptedStr) return null;
+
+  try {
+    const combined = Buffer.from(encryptedStr, 'base64');
+
+    // 1. If buffer has valid GCM layout (iv + authTag + at least 1 byte ciphertext)
+    if (combined.length >= IV_LENGTH + AUTH_TAG_LENGTH + 1) {
+      const iv = combined.subarray(0, IV_LENGTH);
+      const authTag = combined.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
+      const ciphertext = combined.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
+
+      // Fast path: try current primary key and salt
+      const primaryRes = tryGcmDecrypt(ciphertext, iv, authTag, ENCRYPTION_KEY_STR, ENCRYPTION_SALT_STR);
+      if (primaryRes !== null) return primaryRes;
+
+      // Multi-key fallback for GCM
+      for (const k of CANDIDATE_KEYS) {
+        for (const s of CANDIDATE_SALTS) {
+          if (k === ENCRYPTION_KEY_STR && s === ENCRYPTION_SALT_STR) continue; // already tried
+          const res = tryGcmDecrypt(ciphertext, iv, authTag, k, s);
+          if (res !== null) return res;
+        }
+      }
+    }
+
+    // 2. Legacy CryptoJS format fallback
+    // Fast path: try current key
+    const primaryLegacyRes = tryLegacyDecrypt(combined, ENCRYPTION_KEY_STR);
+    if (primaryLegacyRes !== null) return primaryLegacyRes;
+
+    // Multi-key fallback for Legacy
+    for (const k of CANDIDATE_KEYS) {
+      if (k === ENCRYPTION_KEY_STR) continue; // already tried
+      const res = tryLegacyDecrypt(combined, k);
+      if (res !== null) return res;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('[Encryption] Decryption failed for all candidate keys:', error);
+    return null;
+  }
+}
+
+// ---------- Password Hashing (bcrypt) ----------
 const BCRYPT_ROUNDS = 12;
 
 export async function hashPassword(password: string): Promise<string> {
