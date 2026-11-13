@@ -5,15 +5,37 @@ import { decryptData, getKeyInfo } from '@/lib/encryption';
 
 export const dynamic = 'force-dynamic';
 
-// Auth-protected by middleware. Reports key fingerprint and whether stored forms decrypt.
 export async function GET() {
   try {
     await dbConnect();
-    const docs = await FormModel.find({}).select('payload').lean();
-    const ok = docs.filter((d: any) => decryptData(d.payload) !== null).length;
+    const docs = await FormModel.find({}).lean();
+
+    const sampleDetails = docs.slice(0, 5).map((d: any) => {
+      const payloadStr = typeof d.payload === 'string' ? d.payload : '';
+      const dec = d.payload ? decryptData(d.payload) : null;
+      return {
+        id: String(d._id),
+        hasPayload: !!d.payload,
+        payloadLen: payloadStr.length,
+        payloadStart: payloadStr.slice(0, 30),
+        decrypted: dec !== null,
+        decryptedTitle: dec?.title || d.title || null,
+        directFields: Object.keys(d).filter((k) => k !== 'payload'),
+      };
+    });
+
+    const ok = docs.filter((d: any) => {
+      const dec = d.payload ? decryptData(d.payload) : null;
+      return dec !== null || !!d.title;
+    }).length;
 
     return NextResponse.json(
-      { key: getKeyInfo(), forms: { total: docs.length, decrypted: ok } },
+      {
+        version: 'resilient-v2',
+        key: getKeyInfo(),
+        forms: { total: docs.length, decrypted: ok },
+        sampleDetails,
+      },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (error: any) {

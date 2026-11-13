@@ -30,14 +30,14 @@ export async function GET(
     const id = searchParams.get('id');
 
     if (id) {
-      const doc = await model.findById(id);
+      const doc = await model.findById(id).lean();
       if (!doc) return NextResponse.json(null);
-      const decrypted = decryptData(doc.payload);
+      const decrypted = doc.payload ? decryptData(doc.payload) : null;
       const base = { id: doc._id.toString(), _id: doc._id };
       
       let data: any;
       if (collection === 'forms') {
-        data = { items: [], signatureMembers: [], headerTop: '', headerLine4: '', footerText: '', title: 'İsimsiz Form', layout: {}, ...decrypted, ...base };
+        data = { items: [], signatureMembers: [], headerTop: '', headerLine4: '', footerText: '', title: doc.title || 'İsimsiz Form', layout: {}, ...doc, ...decrypted, ...base };
       } else if (collection === 'members') {
         data = { name: 'İsimsiz Üye', title: '', order: 0, ...decrypted, ...base };
       } else if (collection === 'settings') {
@@ -69,13 +69,13 @@ export async function GET(
       });
     }
 
-    const docs = await model.find({});
+    const docs = await model.find({}).lean();
     const decryptedDocs = docs.map((doc: any) => {
       const decrypted = decryptData(doc.payload);
       const base = { id: doc._id.toString(), _id: doc._id };
       
       if (collection === 'forms') {
-        return { items: [], signatureMembers: [], headerTop: '', headerLine4: '', footerText: '', title: 'İsimsiz Form', layout: {}, ...decrypted, ...base };
+        return { items: [], signatureMembers: [], headerTop: '', headerLine4: '', footerText: '', title: doc.title || 'İsimsiz Form', layout: {}, ...doc, ...decrypted, ...base };
       }
       if (collection === 'members') {
         return { name: 'İsimsiz Üye', title: '', order: 0, ...decrypted, ...base };

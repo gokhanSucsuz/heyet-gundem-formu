@@ -166,13 +166,27 @@ function tryLegacyDecrypt(raw: Buffer, legacyKey: string): any {
 }
 
 // ---------- Unified Resilient Decrypt ----------
-export function decryptData(encryptedStr: string): any {
-  if (!encryptedStr) return null;
+export function decryptData(encryptedStr: any): any {
+  if (encryptedStr === null || encryptedStr === undefined) return null;
+
+  // 1. If already an object (plain unencrypted data)
+  if (typeof encryptedStr === 'object') return encryptedStr;
+
+  if (typeof encryptedStr !== 'string') return null;
+
+  // 2. If it's a plain unencrypted JSON string
+  const trimmed = encryptedStr.trim();
+  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed) return parsed;
+    } catch {}
+  }
 
   try {
     const combined = Buffer.from(encryptedStr, 'base64');
 
-    // 1. If buffer has valid GCM layout (iv + authTag + at least 1 byte ciphertext)
+    // 3. If buffer has valid GCM layout (iv + authTag + at least 1 byte ciphertext)
     if (combined.length >= IV_LENGTH + AUTH_TAG_LENGTH + 1) {
       const iv = combined.subarray(0, IV_LENGTH);
       const authTag = combined.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
@@ -192,7 +206,7 @@ export function decryptData(encryptedStr: string): any {
       }
     }
 
-    // 2. Legacy CryptoJS format fallback
+    // 4. Legacy CryptoJS format fallback
     // Fast path: try current key
     const primaryLegacyRes = tryLegacyDecrypt(combined, ENCRYPTION_KEY_STR);
     if (primaryLegacyRes !== null) return primaryLegacyRes;
