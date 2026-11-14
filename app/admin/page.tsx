@@ -63,7 +63,11 @@ export default function AdminPage() {
           <h1 className="text-xl font-bold mb-2">Erişim Reddedildi</h1>
           <p className="text-slate-400 text-sm mb-4">Bu sayfa sadece süper admin için erişilebilir.</p>
           <button
-            onClick={() => signOut({ callbackUrl: '/login' })}
+            onClick={async () => {
+              await signOut({ redirect: false }).catch(() => {});
+              window.close();
+              window.location.href = process.env.NEXT_PUBLIC_PANEL_URL || 'https://www.vakifyonetim.space';
+            }}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold"
           >
             Çıkış Yap
@@ -254,7 +258,11 @@ export default function AdminPage() {
           </form>
 
           <button
-            onClick={() => signOut({ callbackUrl: '/login' })}
+            onClick={async () => {
+              await signOut({ redirect: false }).catch(() => {});
+              window.close();
+              window.location.href = process.env.NEXT_PUBLIC_PANEL_URL || 'https://www.vakifyonetim.space';
+            }}
             className="w-full mt-4 text-slate-500 hover:text-red-400 text-xs font-bold flex items-center justify-center gap-1 py-2 transition-colors"
           >
             <LogOut className="w-3 h-3" />
@@ -281,9 +289,11 @@ export default function AdminPage() {
             </div>
           </div>
           <button
-            onClick={() => {
+            onClick={async () => {
               sessionStorage.removeItem('admin-authenticated');
-              signOut({ callbackUrl: '/login' });
+              await signOut({ redirect: false }).catch(() => {});
+              window.close();
+              window.location.href = process.env.NEXT_PUBLIC_PANEL_URL || 'https://www.vakifyonetim.space';
             }}
             className="flex items-center gap-2 text-red-400 hover:text-red-300 text-xs font-bold px-3 py-2 rounded-lg hover:bg-red-500/10 transition-colors"
           >

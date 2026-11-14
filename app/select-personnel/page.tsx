@@ -105,7 +105,11 @@ export default function SelectPersonnelPage() {
               </span>
             </div>
             <button
-              onClick={() => signOut({ callbackUrl: '/login' })}
+              onClick={async () => {
+                await signOut({ redirect: false }).catch(() => {});
+                window.close();
+                window.location.href = process.env.NEXT_PUBLIC_PANEL_URL || 'https://www.vakifyonetim.space';
+              }}
               className="text-xs text-red-500 hover:text-red-700 font-bold flex items-center gap-1"
             >
               <LogOut className="w-3 h-3" />

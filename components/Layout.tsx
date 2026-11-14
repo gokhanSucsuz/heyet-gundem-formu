@@ -69,7 +69,15 @@ export function AppLayout({ children, fullWidth }: { children: React.ReactNode; 
       }).catch(() => {});
     }
 
-    import('next-auth/react').then(({ signOut }) => signOut({ callbackUrl: '/login' }));
+    try {
+      const { signOut } = await import('next-auth/react');
+      await signOut({ redirect: false });
+    } catch { /* best effort */ }
+
+    sessionStorage.removeItem('personnel');
+    const panelUrl = process.env.NEXT_PUBLIC_PANEL_URL || 'https://www.vakifyonetim.space';
+    window.close();
+    window.location.href = panelUrl;
   };
 
   return (
