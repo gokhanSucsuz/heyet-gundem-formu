@@ -109,3 +109,4 @@ export async function verifyGateCookie(cookieVal: string, secret: string): Promi
     (payload.sub || "").toLowerCase() === allowedEmail
   );
 }
+
