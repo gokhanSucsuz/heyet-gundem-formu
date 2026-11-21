@@ -1331,7 +1331,7 @@ export default function FormEditorPage() {
             /* ==================== LIVE WORD A4 CANVAS ==================== */
             <div className="w-full flex flex-col items-center">
               <div
-                className="w-full max-w-[210mm] bg-white text-black shadow-xl border border-slate-300 rounded-sm min-h-[297mm] relative flex flex-col transition-all px-3 py-5 sm:px-[12mm] sm:py-[12mm]"
+                className="w-full max-w-6xl 2xl:max-w-7xl bg-white text-black shadow-xl border border-slate-300 rounded-md min-h-[297mm] relative flex flex-col transition-all px-4 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-10"
                 style={{
                   fontFamily: docFontFamily,
                 }}
@@ -1546,12 +1546,12 @@ export default function FormEditorPage() {
                   >
                     {/* Top Quick Insert Line */}
                     {canEditForm && (localForm.items?.length || 0) > 0 && (
-                      <div className="group/ins relative h-3 -my-1 flex items-center justify-center">
-                        <div className="w-full h-px bg-transparent group-hover/ins:bg-blue-300 transition-colors" />
+                      <div className="group/ins relative h-5 flex items-center my-0.5">
+                        <div className="w-full h-px bg-transparent group-hover/ins:bg-blue-400/70 transition-colors" />
                         <button
                           type="button"
                           onClick={() => addItemAt(0, 'numbered')}
-                          className="opacity-0 group-hover/ins:opacity-100 absolute bg-blue-700 hover:bg-blue-800 text-white text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 transition-all"
+                          className="opacity-0 group-hover/ins:opacity-100 absolute left-2 bg-blue-700 hover:bg-blue-800 text-white text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 transition-all cursor-pointer z-10"
                         >
                           <Plus className="w-2.5 h-2.5" />
                           <span>En Başa Madde Ekle</span>
@@ -1589,222 +1589,225 @@ export default function FormEditorPage() {
                               setDraggedIndex(null);
                               setDragOverIndex(null);
                             }}
-                            className={`group/block relative rounded-lg transition-all duration-150 py-2 px-1.5 -mx-1.5 ${
+                            className={`group/block relative rounded-xl transition-all duration-150 p-2 sm:p-2.5 -mx-2 border ${
                               isDragging
-                                ? 'opacity-35 bg-slate-100 ring-2 ring-dashed ring-slate-400'
+                                ? 'opacity-35 bg-slate-100 border-dashed border-slate-400'
                                 : isDragOver
-                                ? 'bg-blue-50/70 ring-2 ring-blue-600 shadow-sm'
+                                ? 'bg-blue-50/70 border-blue-600 shadow-sm'
                                 : isBlockActive
-                                ? 'bg-blue-50/25 ring-1 ring-blue-300/80'
-                                : 'hover:bg-slate-50/80'
+                                ? 'bg-blue-50/20 border-blue-300/90 shadow-2xs'
+                                : 'border-transparent hover:border-slate-200/90 hover:bg-slate-50/70'
                             }`}
                           >
-                            {/* FLOATING OBJECT TOOLBAR (TOP-RIGHT OF THE AGENDA BLOCK) */}
-                            {canEditForm && (
-                              <div
-                                className={`font-sans flex flex-wrap items-center gap-1 mb-1.5 sm:mb-0 sm:absolute sm:-top-3 sm:right-2 z-20 bg-white border border-slate-300 shadow-md rounded-lg px-1.5 py-0.5 transition-opacity ${
-                                  isBlockActive
-                                    ? 'opacity-100'
-                                    : 'opacity-100 sm:opacity-0 sm:group-hover/block:opacity-100'
-                                }`}
-                              >
-                                {/* Move Up / Position Input / Move Down */}
-                                <div className="flex items-center bg-slate-100 rounded px-1 py-0.5 mr-0.5">
-                                  <button
-                                    type="button"
-                                    disabled={index === 0}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      moveItem(item.id, index - 1);
-                                    }}
-                                    className="text-slate-600 hover:text-blue-700 disabled:opacity-25 p-0.5"
-                                    title="Bir Üste Taşı"
-                                  >
-                                    <ChevronUp className="w-3.5 h-3.5" />
-                                  </button>
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    max={maxLen}
-                                    defaultValue={index + 1}
-                                    key={`blk-pos-${item.id}-${index}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        const val = parseInt((e.target as HTMLInputElement).value, 10);
-                                        if (!isNaN(val) && val >= 1 && val <= maxLen && val !== index + 1) {
-                                          moveItem(item.id, val - 1);
-                                        }
-                                      }
-                                    }}
-                                    onBlur={(e) => {
-                                      const val = parseInt(e.target.value, 10);
-                                      if (!isNaN(val) && val >= 1 && val <= maxLen && val !== index + 1) {
-                                        moveItem(item.id, val - 1);
-                                      } else {
-                                        e.target.value = (index + 1).toString();
-                                      }
-                                    }}
-                                    className="w-8 text-center text-[11px] font-bold bg-white border border-slate-300 rounded mx-0.5 py-0 outline-none focus:ring-1 focus:ring-blue-600"
-                                    title="Sıra numarasını yazıp Enter'a basın"
-                                  />
-                                  <button
-                                    type="button"
-                                    disabled={index === maxLen - 1}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      moveItem(item.id, index + 1);
-                                    }}
-                                    className="text-slate-600 hover:text-blue-700 disabled:opacity-25 p-0.5"
-                                    title="Bir Alta Taşı"
-                                  >
-                                    <ChevronDown className="w-3.5 h-3.5" />
-                                  </button>
+                            {/* DEDICATED BLOCK HEADER BAR (NO OVERLAP WITH INSERT LINE OR TEXT) */}
+                            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-2">
+                              {/* MAIN AGENDA ITEM LINE: DRAG HANDLE + NUMBER + INLINE WORD EDITOR */}
+                              <div className="flex items-baseline text-left flex-1 min-w-0">
+                                {/* Drag Handle + Number */}
+                                <div
+                                  draggable={canEditForm}
+                                  onDragStart={(e) => {
+                                    if (!canEditForm) return;
+                                    e.dataTransfer.effectAllowed = 'move';
+                                    e.dataTransfer.setData('text/plain', index.toString());
+                                    setDraggedIndex(index);
+                                  }}
+                                  onDragEnd={() => {
+                                    setDraggedIndex(null);
+                                    setDragOverIndex(null);
+                                  }}
+                                  className={`flex items-center mr-2 select-none shrink-0 ${
+                                    canEditForm ? 'cursor-grab active:cursor-grabbing' : ''
+                                  }`}
+                                  title={canEditForm ? 'Maddeyi (tablo ve alt maddeleriyle birlikte) sürükleyip taşımak için tutun' : ''}
+                                >
+                                  {canEditForm && (
+                                    <GripVertical className="w-4 h-4 text-slate-300 group-hover/block:text-slate-500 -ml-1 mr-1 shrink-0 transition-colors" />
+                                  )}
+                                  <span className="font-bold whitespace-nowrap min-w-[20px]">
+                                    {item.type === 'numbered' ? `${index + 1}.` : '•'}
+                                  </span>
                                 </div>
 
-                                {/* Numbered vs Bullet Toggle */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    updateItem(item.id, { type: item.type === 'numbered' ? 'bullet' : 'numbered' });
-                                  }}
-                                  className="text-[10px] font-bold text-slate-700 hover:bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"
-                                  title="Madde Tipini Değiştir (Numaralı / Noktalı)"
-                                >
-                                  {item.type === 'numbered' ? `${index + 1}.` : '•'}
-                                </button>
+                                {/* Inline Rich Text Content */}
+                                <div className="flex-1 min-w-0">
+                                  <RichTextEditor
+                                    variant="inline"
+                                    value={item.text}
+                                    disabled={!canEditForm}
+                                    onEditorFocus={(ed) => {
+                                      setActiveEditor(ed);
+                                      setActiveBlockId(item.id);
+                                    }}
+                                    onChange={(val) => updateItem(item.id, { text: val })}
+                                    placeholder={`${index + 1}. gündem maddesi metnini doğrudan buraya yazın...`}
+                                  />
+                                </div>
+                              </div>
 
-                                {/* Sub-item Add */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const newSubItems = [...(item.subItems || []), { id: uuidv4(), type: 'bullet' as const, text: '' }];
-                                    updateItem(item.id, { subItems: newSubItems });
-                                  }}
-                                  className="text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded flex items-center gap-0.5"
-                                  title="Alt Madde Ekle"
+                              {/* INLINE DOCKED ACTION BAR (RIGHT SIDE OF THE ITEM - ZERO COLLISION) */}
+                              {canEditForm && (
+                                <div
+                                  className={`font-sans flex flex-wrap items-center gap-1 self-end xl:self-start shrink-0 bg-white border border-slate-200/90 shadow-2xs rounded-lg px-1.5 py-1 transition-opacity ${
+                                    isBlockActive
+                                      ? 'opacity-100'
+                                      : 'opacity-100 xl:opacity-0 xl:group-hover/block:opacity-100'
+                                  }`}
                                 >
-                                  <Plus className="w-2.5 h-2.5" />
-                                  <span>Alt Madde</span>
-                                </button>
+                                  {/* Move Up / Position Input / Move Down */}
+                                  <div className="flex items-center bg-slate-100 rounded px-1 py-0.5">
+                                    <button
+                                      type="button"
+                                      disabled={index === 0}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        moveItem(item.id, index - 1);
+                                      }}
+                                      className="text-slate-600 hover:text-blue-700 disabled:opacity-25 p-0.5 cursor-pointer"
+                                      title="Bir Üste Taşı"
+                                    >
+                                      <ChevronUp className="w-3.5 h-3.5" />
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={maxLen}
+                                      defaultValue={index + 1}
+                                      key={`blk-pos-${item.id}-${index}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          const val = parseInt((e.target as HTMLInputElement).value, 10);
+                                          if (!isNaN(val) && val >= 1 && val <= maxLen && val !== index + 1) {
+                                            moveItem(item.id, val - 1);
+                                          }
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        const val = parseInt(e.target.value, 10);
+                                        if (!isNaN(val) && val >= 1 && val <= maxLen && val !== index + 1) {
+                                          moveItem(item.id, val - 1);
+                                        } else {
+                                          e.target.value = (index + 1).toString();
+                                        }
+                                      }}
+                                      className="w-8 text-center text-[11px] font-bold bg-white border border-slate-300 rounded mx-0.5 py-0 outline-none focus:ring-1 focus:ring-blue-600"
+                                      title="Sıra numarasını yazıp Enter'a basın"
+                                    />
+                                    <button
+                                      type="button"
+                                      disabled={index === maxLen - 1}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        moveItem(item.id, index + 1);
+                                      }}
+                                      className="text-slate-600 hover:text-blue-700 disabled:opacity-25 p-0.5 cursor-pointer"
+                                      title="Bir Alta Taşı"
+                                    >
+                                      <ChevronDown className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
 
-                                {/* Table Add or Toggle Settings */}
-                                {!item.hasTable ? (
+                                  {/* Numbered vs Bullet Toggle */}
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      addTableToItem(item.id);
+                                      updateItem(item.id, { type: item.type === 'numbered' ? 'bullet' : 'numbered' });
                                     }}
-                                    className="text-[10px] font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded flex items-center gap-0.5"
-                                    title="Bu Maddeye Tablo Ekle"
+                                    className="text-[10px] font-bold text-slate-700 hover:bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 cursor-pointer"
+                                    title="Madde Tipini Değiştir (Numaralı / Noktalı)"
                                   >
-                                    <TableIcon className="w-2.5 h-2.5" />
-                                    <span>+ Tablo</span>
+                                    {item.type === 'numbered' ? `${index + 1}.` : '•'}
                                   </button>
-                                ) : (
+
+                                  {/* Sub-item Add */}
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setOpenTablePanelId(isTableConfigOpen ? null : item.id);
+                                      const newSubItems = [...(item.subItems || []), { id: uuidv4(), type: 'bullet' as const, text: '' }];
+                                      updateItem(item.id, { subItems: newSubItems });
                                     }}
-                                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 border ${
-                                      isTableConfigOpen
-                                        ? 'bg-blue-700 text-white border-blue-700'
-                                        : 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100'
-                                    }`}
-                                    title="Tablo Araçlarını ve Muhtaçlık Kontrolünü Aç/Kapat"
+                                    className="text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-0.5 cursor-pointer"
+                                    title="Alt Madde Ekle"
                                   >
-                                    <TableIcon className="w-2.5 h-2.5" />
-                                    <span>Tablo Ayarı</span>
+                                    <Plus className="w-2.5 h-2.5" />
+                                    <span>Alt Madde</span>
                                   </button>
-                                )}
 
-                                {/* Age & Gender Compact Inputs */}
-                                <input
-                                  type="text"
-                                  value={item.age || ''}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={(e) => updateItem(item.id, { age: e.target.value })}
-                                  placeholder="Yaş"
-                                  className="w-10 text-[10px] font-semibold border border-slate-200 rounded px-1 py-0.5 text-center bg-slate-50 focus:bg-white outline-none"
-                                  title="Yaş (Baskı sıralaması için opsiyonel)"
-                                />
-                                <select
-                                  value={item.gender || ''}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={(e) => {
-                                    const g = e.target.value as 'male' | 'female' | '';
-                                    updateItem(item.id, { gender: g || undefined });
-                                  }}
-                                  className="text-[10px] font-semibold border border-slate-200 rounded px-1 py-0.5 bg-slate-50 focus:bg-white outline-none"
-                                  title="Cinsiyet (Baskı sıralaması için opsiyonel)"
-                                >
-                                  <option value="">Cins.</option>
-                                  <option value="female">K</option>
-                                  <option value="male">E</option>
-                                </select>
+                                  {/* Table Add or Toggle Settings */}
+                                  {!item.hasTable ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        addTableToItem(item.id);
+                                      }}
+                                      className="text-[10px] font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded flex items-center gap-0.5 cursor-pointer"
+                                      title="Bu Maddeye Tablo Ekle"
+                                    >
+                                      <TableIcon className="w-2.5 h-2.5" />
+                                      <span>+ Tablo</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenTablePanelId(isTableConfigOpen ? null : item.id);
+                                      }}
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-0.5 border cursor-pointer ${
+                                        isTableConfigOpen
+                                          ? 'bg-blue-700 text-white border-blue-700'
+                                          : 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100'
+                                      }`}
+                                      title="Tablo Araçlarını ve Muhtaçlık Kontrolünü Aç/Kapat"
+                                    >
+                                      <TableIcon className="w-2.5 h-2.5" />
+                                      <span>Tablo Ayarı</span>
+                                    </button>
+                                  )}
 
-                                {/* Delete Block */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    removeItem(item.id);
-                                  }}
-                                  className="text-red-600 hover:bg-red-50 p-1 rounded transition-colors"
-                                  title="Maddeyi (Tablosu ve Alt Maddeleriyle Birlikte) Sil"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            )}
+                                  {/* Age & Gender Compact Inputs */}
+                                  <input
+                                    type="text"
+                                    value={item.age || ''}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => updateItem(item.id, { age: e.target.value })}
+                                    placeholder="Yaş"
+                                    className="w-10 text-[10px] font-semibold border border-slate-200 rounded px-1 py-0.5 text-center bg-slate-50 focus:bg-white outline-none"
+                                    title="Yaş (Baskı sıralaması için opsiyonel)"
+                                  />
+                                  <select
+                                    value={item.gender || ''}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => {
+                                      const g = e.target.value as 'male' | 'female' | '';
+                                      updateItem(item.id, { gender: g || undefined });
+                                    }}
+                                    className="text-[10px] font-semibold border border-slate-200 rounded px-1 py-0.5 bg-slate-50 focus:bg-white outline-none cursor-pointer"
+                                    title="Cinsiyet (Baskı sıralaması için opsiyonel)"
+                                  >
+                                    <option value="">Cins.</option>
+                                    <option value="female">K</option>
+                                    <option value="male">E</option>
+                                  </select>
 
-                            {/* MAIN AGENDA ITEM LINE: DRAG HANDLE + NUMBER + INLINE WORD EDITOR */}
-                            <div className="flex items-baseline text-left">
-                              {/* Drag Handle + Number */}
-                              <div
-                                draggable={canEditForm}
-                                onDragStart={(e) => {
-                                  if (!canEditForm) return;
-                                  e.dataTransfer.effectAllowed = 'move';
-                                  e.dataTransfer.setData('text/plain', index.toString());
-                                  setDraggedIndex(index);
-                                }}
-                                onDragEnd={() => {
-                                  setDraggedIndex(null);
-                                  setDragOverIndex(null);
-                                }}
-                                className={`flex items-center mr-1.5 select-none shrink-0 ${
-                                  canEditForm ? 'cursor-grab active:cursor-grabbing' : ''
-                                }`}
-                                title={canEditForm ? 'Maddeyi (tablo ve alt maddeleriyle birlikte) sürükleyip taşımak için tutun' : ''}
-                              >
-                                {canEditForm && (
-                                  <GripVertical className="w-3.5 h-3.5 text-slate-300 group-hover/block:text-slate-500 -ml-1 mr-0.5 shrink-0 transition-colors" />
-                                )}
-                                <span className="font-bold whitespace-nowrap min-w-[20px]">
-                                  {item.type === 'numbered' ? `${index + 1}.` : '•'}
-                                </span>
-                              </div>
-
-                              {/* Inline Rich Text Content */}
-                              <div className="flex-1 min-w-0">
-                                <RichTextEditor
-                                  variant="inline"
-                                  value={item.text}
-                                  disabled={!canEditForm}
-                                  onEditorFocus={(ed) => {
-                                    setActiveEditor(ed);
-                                    setActiveBlockId(item.id);
-                                  }}
-                                  onChange={(val) => updateItem(item.id, { text: val })}
-                                  placeholder={`${index + 1}. gündem maddesi metnini doğrudan buraya yazın...`}
-                                />
-                              </div>
+                                  {/* Delete Block */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeItem(item.id);
+                                    }}
+                                    className="text-red-600 hover:bg-red-50 p-1 rounded transition-colors cursor-pointer"
+                                    title="Maddeyi (Tablosu ve Alt Maddeleriyle Birlikte) Sil"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
                             </div>
 
                             {/* ATTACHED TABLE OBJECT (MOVES TOGETHER WITH THE AGENDA ITEM) */}
@@ -2214,14 +2217,14 @@ export default function FormEditorPage() {
                             )}
                           </div>
 
-                          {/* In-between Hover Line to Insert New Block Here */}
+                          {/* In-between Hover Line to Insert New Block Here (Left-Aligned so it never collides with Right Action Bar) */}
                           {canEditForm && (
-                            <div className="group/ins relative h-3 -my-0.5 flex items-center justify-center">
-                              <div className="w-full h-px bg-transparent group-hover/ins:bg-blue-300 transition-colors" />
+                            <div className="group/ins relative h-5 flex items-center my-0.5">
+                              <div className="w-full h-px bg-transparent group-hover/ins:bg-blue-400/70 transition-colors" />
                               <button
                                 type="button"
                                 onClick={() => addItemAt(index + 1, 'numbered')}
-                                className="opacity-0 group-hover/ins:opacity-100 absolute bg-blue-700 hover:bg-blue-800 text-white text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 transition-all z-10"
+                                className="opacity-0 group-hover/ins:opacity-100 absolute left-2 bg-blue-700 hover:bg-blue-800 text-white text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 transition-all cursor-pointer z-10"
                               >
                                 <Plus className="w-2.5 h-2.5" />
                                 <span>{index + 2}. Madde Olarak Araya Ekle</span>
