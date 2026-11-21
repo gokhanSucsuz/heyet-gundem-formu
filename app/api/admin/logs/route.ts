@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     const personnelId = searchParams.get('personnelId');
     const action = searchParams.get('action');
     const resource = searchParams.get('resource');
+    const excludeResource = searchParams.get('excludeResource');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
@@ -29,7 +30,11 @@ export async function GET(req: NextRequest) {
       ];
     }
     if (action) query.action = action;
-    if (resource) query.resource = resource;
+    if (resource) {
+      query.resource = resource;
+    } else if (excludeResource) {
+      query.resource = { $ne: excludeResource };
+    }
     if (startDate || endDate) {
       query.timestamp = {};
       if (startDate) query.timestamp.$gte = new Date(startDate);

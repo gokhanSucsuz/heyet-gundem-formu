@@ -6,8 +6,8 @@ import { PersonnelModel } from '@/models/Personnel';
 export async function GET() {
   try {
     await dbConnect();
-    const personnel = await PersonnelModel.find({ isActive: true }, { _id: 1, name: 1 }).sort({ name: 1 });
-    const list = personnel.map((p: any) => ({ id: p._id, name: p.name }));
+    const personnel = await PersonnelModel.find({ isActive: true }, { _id: 1, name: 1, isAdmin: 1 }).sort({ name: 1 });
+    const list = personnel.map((p: any) => ({ id: p._id, name: p.name, isAdmin: p.isAdmin || false }));
     return NextResponse.json(list);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
