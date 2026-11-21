@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FileText, Users, Settings, Menu, X, LogOut, User, Key, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { FileText, Users, Settings, Menu, X, LogOut, User, Key, PanelLeftClose, PanelLeftOpen, Activity, Landmark } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Toaster } from 'sonner';
 import { usePersonnel } from '@/components/PersonnelProvider';
@@ -34,13 +34,12 @@ export function AppLayout({ children, fullWidth }: { children: React.ReactNode; 
     { href: '/', label: 'Gündem ve Kararlar', icon: FileText },
     ...(personnel?.isAdmin ? [
       { href: '/members', label: 'Mütevelli Heyet Üyeleri', icon: Users },
-      { href: '/settings', label: 'Genel Ayarlar', icon: Settings },
-      { href: '/logs', label: 'Sistem Logları', icon: FileText },
+      { href: '/settings', label: 'Belge & Sistem Ayarları', icon: Settings },
+      { href: '/logs', label: 'Denetim Logları', icon: Activity },
     ] : []),
   ];
 
   const handleLogout = async () => {
-    // Flush any pending saves before logout
     try {
       await db.forms.flushQueue();
       await db.members.flushQueue();
@@ -51,7 +50,6 @@ export function AppLayout({ children, fullWidth }: { children: React.ReactNode; 
   };
 
   const handleGoogleLogout = async () => {
-    // Flush pending saves, then sign out from both personnel and Google
     try {
       await db.forms.flushQueue();
       await db.members.flushQueue();
@@ -81,43 +79,50 @@ export function AppLayout({ children, fullWidth }: { children: React.ReactNode; 
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-200 text-slate-800 font-sans">
-      {/* Desktop Sidebar */}
-      <aside className={`w-80 bg-white border-r border-slate-300 flex-col hidden lg:flex shadow-xl z-20 shrink-0 transition-all duration-300 ease-in-out ${isSidebarCollapsed ? '-ml-80' : ''}`}>
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/logo-sydv.jpg" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-blue-200" />
-            <div className="flex flex-col">
-              <h1 className="font-bold tracking-tight text-sm uppercase text-slate-900 leading-none">Mütevelli Heyeti</h1>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Gündem Aracı</span>
+    <div className="flex h-screen overflow-hidden bg-slate-200/80 text-slate-800 font-sans">
+      {/* Desktop Sidebar - Compact Official GovTech Dark Slate & Navy Accent */}
+      <aside className={`w-64 bg-slate-900 text-slate-100 border-r border-slate-800 flex-col hidden lg:flex shadow-xl z-20 shrink-0 transition-all duration-300 ease-in-out ${isSidebarCollapsed ? '-ml-64' : ''}`}>
+        {/* Brand Header */}
+        <div className="px-4 py-3.5 border-b border-slate-800 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5 min-w-0">
+            <img src="/logo-sydv.jpg" alt="SYDV Logo" className="w-9 h-9 rounded-lg object-cover ring-2 ring-amber-500/40 shrink-0" />
+            <div className="flex flex-col min-w-0">
+              <h1 className="font-bold tracking-tight text-xs uppercase text-white leading-tight truncate">T.C. SYDV</h1>
+              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider truncate">Mütevelli Heyeti</span>
             </div>
-          </div>
+          </Link>
           <button
             type="button"
             onClick={() => toggleSidebar(true)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-            title="Menüyü Kapat / Daralt"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            title="Menüyü Daralt"
           >
-            <PanelLeftClose className="w-5 h-5" />
+            <PanelLeftClose className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Personnel Info */}
+        {/* Personnel Badge */}
         {personnel && (
-          <div className="px-5 py-3 border-b border-slate-100 bg-blue-50/50">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-[10px] font-bold">
+          <div className="px-4 py-2.5 border-b border-slate-800 bg-slate-800/60">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 bg-blue-600 text-white rounded-lg flex items-center justify-center text-xs font-bold shrink-0">
                 {personnel.name.charAt(0).toUpperCase()}
               </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs font-bold text-slate-700 truncate">{personnel.name}</span>
-                <span className="text-[9px] text-slate-400 font-bold uppercase">Aktif Personel</span>
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-xs font-bold text-white truncate">{personnel.name}</span>
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                  {personnel.isAdmin ? 'Yönetici Personel' : 'Yetkili Personel'}
+                </span>
               </div>
             </div>
           </div>
         )}
 
-        <nav className="flex-1 p-5 space-y-1.5 overflow-y-auto">
+        {/* Navigation */}
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          <div className="px-2.5 py-1 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+            Modüller
+          </div>
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
             const Icon = item.icon;
@@ -125,46 +130,47 @@ export function AppLayout({ children, fullWidth }: { children: React.ReactNode; 
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-xs font-bold uppercase tracking-tight ${
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-all duration-150 text-xs font-bold uppercase tracking-tight ${
                   isActive
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
-                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-blue-700 text-white shadow-sm'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                <span>{item.label}</span>
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                <span className="truncate">{item.label}</span>
               </Link>
             );
           })}
         </nav>
-        <div className="p-5 border-t border-slate-100 flex flex-col gap-3">
-          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Kurumsal Çözüm</p>
-            <p className="text-[11px] text-slate-600 leading-relaxed font-medium">Resmi yazışma ve kurul kararları yönetim sistemi.</p>
-          </div>
-          {/* Change Password */}
+
+        {/* Bottom Actions */}
+        <div className="p-3 border-t border-slate-800 flex flex-col gap-1">
           <Link 
             href="/profile"
-            className="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-xs font-bold uppercase tracking-tight text-slate-600 hover:bg-slate-100 hover:text-slate-900 w-full text-left"
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors text-xs font-bold uppercase tracking-tight ${
+              pathname === '/profile'
+                ? 'bg-blue-700 text-white'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
           >
-            <Key className="w-5 h-5 text-slate-500" />
+            <Key className="w-4 h-4 text-slate-400 shrink-0" />
             <span>Şifremi Değiştir</span>
           </Link>
-          {/* Personnel Switch */}
           <button 
+            type="button"
             onClick={handleLogout}
-            className="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-xs font-bold uppercase tracking-tight text-amber-600 hover:bg-amber-50 hover:text-amber-700 w-full text-left"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors text-xs font-bold uppercase tracking-tight text-amber-400 hover:bg-amber-500/10 w-full text-left"
           >
-            <User className="w-5 h-5 text-amber-500" />
+            <User className="w-4 h-4 text-amber-400 shrink-0" />
             <span>Personel Değiştir</span>
           </button>
-          {/* Full Logout */}
           <button 
+            type="button"
             onClick={handleGoogleLogout}
-            className="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-xs font-bold uppercase tracking-tight text-red-600 hover:bg-red-50 hover:text-red-700 w-full text-left"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors text-xs font-bold uppercase tracking-tight text-red-400 hover:bg-red-500/10 w-full text-left"
           >
-            <LogOut className="w-5 h-5 text-red-500" />
-            <span>Çıkış Yap</span>
+            <LogOut className="w-4 h-4 text-red-400 shrink-0" />
+            <span>Güvenli Çıkış</span>
           </button>
         </div>
       </aside>
@@ -172,36 +178,41 @@ export function AppLayout({ children, fullWidth }: { children: React.ReactNode; 
       {/* Mobile Backdrop */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-30 lg:hidden"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
-      {/* Mobile Sidebar */}
-      <aside className={`fixed top-0 left-0 bottom-0 w-72 bg-white z-40 transition-transform duration-300 lg:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-             <img src="/logo-sydv.jpg" alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
-             <span className="font-bold text-sm uppercase">Mütevelli Heyeti</span>
+      {/* Mobile Drawer Sidebar */}
+      <aside className={`fixed top-0 left-0 bottom-0 w-64 bg-slate-900 text-white z-50 transition-transform duration-250 lg:hidden flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+             <img src="/logo-sydv.jpg" alt="Logo" className="w-8 h-8 rounded-lg object-cover ring-1 ring-amber-400/50" />
+             <div className="flex flex-col">
+               <span className="font-bold text-xs uppercase text-white">T.C. SYDV</span>
+               <span className="text-[10px] font-bold text-amber-400 uppercase">Mütevelli Heyeti</span>
+             </div>
           </div>
-          <button onClick={() => setIsMobileMenuOpen(false)}>
-            <X className="w-6 h-6 text-slate-400" />
+          <button type="button" onClick={() => setIsMobileMenuOpen(false)} className="p-1 text-slate-400 hover:text-white">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Mobile Personnel Info */}
         {personnel && (
-          <div className="px-4 py-2 border-b border-slate-100 bg-blue-50/50">
+          <div className="px-4 py-2.5 border-b border-slate-800 bg-slate-800/60">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-[9px] font-bold">
+              <div className="w-6 h-6 bg-blue-600 text-white rounded-md flex items-center justify-center text-[10px] font-bold">
                 {personnel.name.charAt(0).toUpperCase()}
               </div>
-              <span className="text-xs font-bold text-slate-700">{personnel.name}</span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-bold text-white truncate">{personnel.name}</span>
+                <span className="text-[9px] text-slate-400 font-bold uppercase">{personnel.isAdmin ? 'Yönetici' : 'Personel'}</span>
+              </div>
             </div>
           </div>
         )}
 
-        <nav className="p-4 space-y-2">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
             const Icon = item.icon;
@@ -210,68 +221,79 @@ export function AppLayout({ children, fullWidth }: { children: React.ReactNode; 
                 key={item.href}
                 href={item.href}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase ${
-                  isActive ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-bold uppercase ${
+                  isActive ? 'bg-blue-700 text-white' : 'text-slate-300 hover:bg-slate-800'
                 }`}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-4 h-4" />
                 <span>{item.label}</span>
               </Link>
             );
           })}
-          
+        </nav>
+
+        <div className="p-3 border-t border-slate-800 space-y-1">
           <Link
             href="/profile"
             onClick={() => setIsMobileMenuOpen(false)}
-            className="flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase text-slate-600 hover:bg-slate-100 w-full text-left mt-4"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold uppercase text-slate-300 hover:bg-slate-800 w-full"
           >
-            <Key className="w-5 h-5" />
+            <Key className="w-4 h-4" />
             <span>Şifremi Değiştir</span>
           </Link>
           <button
+            type="button"
             onClick={handleLogout}
-            className="flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase text-amber-600 hover:bg-amber-50 w-full text-left mt-4"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold uppercase text-amber-400 hover:bg-amber-500/10 w-full text-left"
           >
-            <User className="w-5 h-5" />
+            <User className="w-4 h-4" />
             <span>Personel Değiştir</span>
           </button>
-
           <button
+            type="button"
             onClick={handleGoogleLogout}
-            className="flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase text-red-600 hover:bg-red-50 w-full text-left"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold uppercase text-red-400 hover:bg-red-500/10 w-full text-left"
           >
-            <LogOut className="w-5 h-5" />
-            <span>Çıkış Yap</span>
+            <LogOut className="w-4 h-4" />
+            <span>Güvenli Çıkış</span>
           </button>
-        </nav>
+        </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
-        {/* Mobile Navbar */}
-        <header className="lg:hidden h-16 bg-white border-b border-slate-300 flex items-center justify-between px-4 shrink-0 shadow-sm relative z-10">
-          <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2">
-            <Menu className="w-6 h-6 text-slate-600" />
+        {/* Compact Mobile Top Header */}
+        <header className="lg:hidden h-12 bg-slate-900 text-white border-b border-slate-800 flex items-center justify-between px-3 shrink-0 shadow-xs relative z-10">
+          <button type="button" onClick={() => setIsMobileMenuOpen(true)} className="p-1.5 rounded-lg hover:bg-slate-800">
+            <Menu className="w-5 h-5 text-slate-200" />
           </button>
-          <span className="font-bold text-sm uppercase tracking-wider text-slate-900">Mütevelli Heyeti</span>
-          <div className="w-10 flex justify-end">
+          <div className="flex items-center gap-2">
+            <img src="/logo-sydv.jpg" alt="Logo" className="w-6 h-6 rounded object-cover" />
+            <span className="font-bold text-xs uppercase tracking-wider text-white">Mütevelli Heyeti</span>
+          </div>
+          <div className="w-8 flex justify-end">
+            {personnel && (
+              <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
+                {personnel.name.charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
         </header>
 
-        {/* Desktop Sidebar Expand Button (when collapsed) */}
+        {/* Desktop Sidebar Expand Pill (when collapsed) */}
         {isSidebarCollapsed && (
           <button
             type="button"
             onClick={() => toggleSidebar(false)}
-            className="hidden lg:flex fixed top-4 left-4 z-40 p-2.5 bg-white/95 hover:bg-white text-slate-700 rounded-xl shadow-lg border border-slate-300 items-center gap-2 text-xs font-bold transition-all hover:scale-105 backdrop-blur hover:text-blue-600 group"
+            className="hidden lg:flex fixed bottom-4 left-4 z-40 px-3 py-2 bg-slate-900 hover:bg-blue-700 text-white rounded-xl shadow-lg border border-slate-700 items-center gap-2 text-xs font-bold transition-all"
             title="Sol Menüyü Aç"
           >
-            <PanelLeftOpen className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
-            <span>Menüyü Aç</span>
+            <PanelLeftOpen className="w-4 h-4 text-amber-400" />
+            <span>Menü</span>
           </button>
         )}
 
-        <div id="main-scroll-container" className={`flex-1 overflow-y-auto relative ${fullWidth ? 'p-2 sm:p-4' : 'p-2 sm:p-6 lg:p-8'}`}>
+        <div className={`flex-1 overflow-y-auto relative ${fullWidth ? 'p-1.5 sm:p-3' : 'p-3 sm:p-5 lg:p-6'}`}>
           <div className={`mx-auto ${fullWidth ? 'w-full max-w-none' : 'max-w-6xl'}`}>
             {children}
           </div>

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { db, useLiveQuery } from '@/lib/db';
 import { AppLayout } from '@/components/Layout';
 import Link from 'next/link';
-import { Plus, FileText, Calendar, Trash2, Lock, Copy, Bookmark } from 'lucide-react';
+import { Plus, FileText, Calendar, Trash2, Lock, Copy, Bookmark, Search, ListChecks, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -16,6 +16,9 @@ export default function FormsPage() {
   const forms = useLiveQuery(() => db.forms.orderBy('updatedAt').reverse().toArray());
   const { personnel } = usePersonnel();
   const isAdmin = personnel?.isAdmin || false;
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'locked' | 'postponed' | 'passive'>('all');
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, message: string, onConfirm: () => void}>({ isOpen: false, message: '', onConfirm: () => {} });
 
   const createForm = async () => {
@@ -29,7 +32,7 @@ export default function FormsPage() {
     // Otomatik pasif yapma: Yeni form oluşturulurken, tarihi bugünden eski olan aktif formları pasife çek.
     if (forms) {
       for (const f of forms) {
-        const isActive = f.isActive !== false; // default true
+        const isActive = f.isActive !== false;
         if (isActive && f.decisionDate && f.decisionDate < today) {
           await db.forms.update(f.id, { isActive: false });
         }
@@ -65,7 +68,7 @@ export default function FormsPage() {
         }))
       };
       await db.forms.add(newForm);
-      toast.success('Şablon kullanılarak yeni form oluşturuldu.');
+      toast.success('Şablon kullanılarak yeni karar formu oluşturuldu.');
       router.push(`/forms/${id}`);
       return;
     }
@@ -74,20 +77,20 @@ export default function FormsPage() {
       id,
       title: 'Yeni Karar Formu',
       documentDate: new Date().toLocaleDateString('tr-TR'),
-      decisionNo: '2023/ 01',
+      decisionNo: `${new Date().getFullYear()} / 01`,
       decisionDate: today,
       decisionTime: '10:00',
       isPostponed: false,
       isActive: true,
-      headerTop: 'T.C\n.......... İLİ\n.......... BAŞKANLIĞI',
+      headerTop: 'T.C\n.......... VALİLİĞİ / KAYMAKAMLIĞI\nSosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı',
       headerMiddle: '',
       headerBottom: '',
-      headerLine4: 'Tarih ve Karar No',
+      headerLine4: `${new Date(today).toLocaleDateString('tr-TR')} - Karar No: ${new Date().getFullYear()} / 01`,
       items: [
         {
           id: uuidv4(),
           type: 'numbered',
-          text: 'Örnek kişinin talebi',
+          text: 'Vakfımıza yapılan sosyal yardım taleplerinin görüşülmesi.',
         }
       ],
       footerText: 'Yukarıda maddeler halinde belirtilen yardım talepleri görüşülmüş olup verilen kararlar oy birliği ile alınmıştır.',
@@ -113,9 +116,10 @@ export default function FormsPage() {
 
   const deleteForm = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setConfirmModal({
       isOpen: true,
-      message: 'Bu formu silmek istediğinize emin misiniz?',
+      message: 'Bu karar formunu kalıcı olarak silmek istediğinize emin misiniz?',
       onConfirm: async () => {
         await db.forms.delete(id);
         toast.success('Form silindi.');
@@ -126,9 +130,10 @@ export default function FormsPage() {
 
   const duplicateForm = async (formToCopy: any, e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setConfirmModal({
       isOpen: true,
-      message: 'Bu formun bir kopyasını oluşturmak istediğinize emin misiniz?',
+      message: 'Bu formun tüm maddeleriyle birlikte bir kopyasını oluşturmak istediğinize emin misiniz?',
       onConfirm: async () => {
         const newId = uuidv4();
         const newForm = {
@@ -190,13 +195,12 @@ export default function FormsPage() {
       isOpen: true,
       message: form.isTemplate 
         ? 'Bu formun şablon özelliğini iptal etmek istediğinize emin misiniz?' 
-        : 'Bu formu sistem şablonu olarak belirlemek istediğinize emin misiniz? (Diğer şablonlar iptal edilir)',
+        : 'Bu formu sistem şablonu olarak belirlemek istediğinize emin misiniz? (Yeni formlar bu şablondan üretilir)',
       onConfirm: async () => {
         if (form.isTemplate) {
           await db.forms.update(form.id, { isTemplate: false });
           toast.success('Şablon iptal edildi.');
         } else {
-          // Unset all other templates first
           const others = forms?.filter(f => f.isTemplate && f.id !== form.id) || [];
           for (const o of others) {
             await db.forms.update(o.id, { isTemplate: false });
@@ -209,168 +213,256 @@ export default function FormsPage() {
     });
   };
 
-  const filteredForms = forms?.filter(f => isAdmin || !f.isTemplate) || [];
+  const visibleForms = useMemo(() => {
+    if (!forms) return [];
+    return forms.filter(f => {
+      if (!isAdmin && f.isTemplate) return false;
+      if (statusFilter === 'active' && (f.isActive === false || f.isLocked)) return false;
+      if (statusFilter === 'locked' && !f.isLocked) return false;
+      if (statusFilter === 'postponed' && !f.isPostponed) return false;
+      if (statusFilter === 'passive' && f.isActive !== false) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLocaleLowerCase('tr');
+        const matchTitle = (f.title || '').toLocaleLowerCase('tr').includes(q);
+        const matchNo = (f.decisionNo || '').toLocaleLowerCase('tr').includes(q);
+        const matchDate = f.decisionDate ? new Date(f.decisionDate).toLocaleDateString('tr-TR').includes(q) : false;
+        return matchTitle || matchNo || matchDate;
+      }
+      return true;
+    });
+  }, [forms, isAdmin, statusFilter, searchQuery]);
 
   return (
     <AppLayout>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+      {/* Compact Header & Primary Action */}
+      <div className="bg-white border border-slate-300 rounded-xl p-4 mb-4 shadow-2xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 uppercase">Karar Formları</h1>
-          <p className="text-slate-500 mt-1 text-xs sm:text-sm font-medium">Hazırlanmış karar ve gündem formları</p>
+          <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 uppercase flex items-center gap-2">
+            <FileText className="w-5 h-5 text-blue-700" />
+            <span>Mütevelli Heyeti Gündem & Karar Formları</span>
+          </h1>
+          <p className="text-slate-500 text-xs font-medium mt-0.5">
+            Belgeyi açarak gerçek Word sayfası düzeninde maddeleri ve tabloları hazırlayın.
+          </p>
         </div>
         {isAdmin && (
           <button
+            type="button"
             onClick={createForm}
-            className="flex items-center justify-center gap-2 w-full sm:w-auto bg-blue-700 hover:bg-blue-800 text-white px-4 py-2.5 rounded text-sm font-bold transition-colors shadow-sm"
+            className="flex items-center justify-center gap-1.5 w-full sm:w-auto bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-xs shrink-0"
           >
-            <Plus className="w-5 h-5" />
-            YENİ FORM OLUŞTUR
+            <Plus className="w-4 h-4" />
+            <span>Yeni Karar Formu</span>
           </button>
         )}
       </div>
 
+      {/* Compact Filter & Search Bar */}
+      <div className="bg-white border border-slate-300 rounded-xl p-2.5 mb-4 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Karar adı, karar no veya tarih ile ara..."
+            className="w-full pl-9 pr-3 py-1.5 text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-blue-600"
+          />
+        </div>
+        <div className="flex items-center gap-1 overflow-x-auto pb-0.5 md:pb-0">
+          {[
+            { id: 'all', label: 'Tümü' },
+            { id: 'active', label: 'Hazırlanan' },
+            { id: 'locked', label: 'Kesinleşen' },
+            { id: 'postponed', label: 'Ertelenen' },
+            { id: 'passive', label: 'Arşiv / Pasif' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setStatusFilter(tab.id as any)}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase whitespace-nowrap transition-colors ${
+                statusFilter === tab.id
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {!forms ? (
-        <div className="text-center py-12 text-slate-500">Yükleniyor...</div>
-      ) : filteredForms.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded border border-slate-300 shadow-sm">
-          <div className="w-16 h-16 bg-blue-50 text-blue-700 rounded flex items-center justify-center mx-auto mb-4">
-            <FileText className="w-8 h-8" />
+        <div className="text-center py-12 text-slate-500 text-sm font-bold">Yükleniyor...</div>
+      ) : visibleForms.length === 0 ? (
+        <div className="text-center py-14 bg-white rounded-xl border border-slate-300 shadow-2xs px-4">
+          <div className="w-12 h-12 bg-blue-50 text-blue-700 rounded-xl flex items-center justify-center mx-auto mb-3">
+            <FileText className="w-6 h-6" />
           </div>
-          <h3 className="text-lg font-bold text-slate-900 mb-2 uppercase">Henüz form bulunmuyor</h3>
-          <p className="text-slate-500 max-w-md mx-auto mb-6 text-sm">
-            {isAdmin
+          <h3 className="text-sm font-bold text-slate-900 mb-1 uppercase">Karar Formu Bulunamadı</h3>
+          <p className="text-slate-500 max-w-md mx-auto mb-5 text-xs">
+            {searchQuery || statusFilter !== 'all'
+              ? 'Arama veya filtre kriterlerinize uygun karar formu bulunamadı.'
+              : isAdmin
               ? 'Yeni bir karar veya gündem formu oluşturarak başlayabilirsiniz.'
               : 'Yönetici tarafından yeni bir karar veya gündem formu oluşturulduğunda burada listelenecektir.'}
           </p>
-          {isAdmin && (
+          {isAdmin && statusFilter === 'all' && !searchQuery && (
             <button
+              type="button"
               onClick={createForm}
-              className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded text-sm font-bold transition-colors mx-auto shadow-sm"
+              className="inline-flex items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase transition-colors shadow-xs"
             >
-              <Plus className="w-5 h-5" />
-              İLK FORMU OLUŞTUR
+              <Plus className="w-4 h-4" />
+              <span>İlk Formu Oluştur</span>
             </button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredForms.map(form => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {visibleForms.map(form => {
             const isLocked = form.isLocked;
             const isPostponed = form.isPostponed;
             const isPassive = form.isActive === false;
+            const itemCount = form.items?.length || 0;
+            const tableCount = (form.items || []).filter(i => i.hasTable).length;
             
             let iconBgColor = 'bg-blue-50';
             let iconTextColor = 'text-blue-700';
-            let borderColor = 'border-slate-300 hover:border-blue-500';
-            let badgeText = '';
-            let badgeColor = '';
+            let borderColor = 'border-slate-300 hover:border-blue-600';
+            let badgeText = 'HAZIRLANIYOR';
+            let badgeColor = 'bg-blue-50 text-blue-800 border-blue-200';
             
             if (isPostponed) {
               iconBgColor = 'bg-amber-50';
               iconTextColor = 'text-amber-700';
-              borderColor = 'border-slate-300 hover:border-amber-500';
+              borderColor = 'border-amber-300 hover:border-amber-600';
               badgeText = 'ERTELENDİ';
-              badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
+              badgeColor = 'bg-amber-100 text-amber-900 border-amber-300';
             } else if (isLocked) {
               iconBgColor = 'bg-emerald-50';
               iconTextColor = 'text-emerald-700';
-              borderColor = 'border-slate-300 hover:border-emerald-500';
+              borderColor = 'border-emerald-300 hover:border-emerald-600';
               badgeText = 'KESİNLEŞTİ';
-              badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+              badgeColor = 'bg-emerald-100 text-emerald-900 border-emerald-300';
             }
             if (isPassive) {
               iconBgColor = 'bg-slate-100';
               iconTextColor = 'text-slate-500';
-              borderColor = 'border-slate-200 hover:border-slate-400 opacity-75';
-              badgeText = 'PASİF';
+              borderColor = 'border-slate-200 hover:border-slate-400 opacity-80';
+              badgeText = 'PASİF / ARŞİV';
               badgeColor = 'bg-slate-100 text-slate-600 border-slate-300';
             }
             if (form.isTemplate) {
-              iconBgColor = 'bg-fuchsia-50';
-              iconTextColor = 'text-fuchsia-700';
-              borderColor = 'border-fuchsia-300 hover:border-fuchsia-500 border-2 border-dashed shadow-sm';
-              badgeText = 'ŞABLON FORM';
-              badgeColor = 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200';
+              iconBgColor = 'bg-amber-100';
+              iconTextColor = 'text-amber-800';
+              borderColor = 'border-amber-400 hover:border-amber-600 border-2 border-dashed';
+              badgeText = 'SİSTEM ŞABLONU';
+              badgeColor = 'bg-amber-100 text-amber-900 border-amber-300';
             }
 
             return (
-            <Link key={form.id || (form as any)._id} href={`/forms/${form.id}`} className="block group">
-              <div className={`bg-white rounded border ${borderColor} p-5 hover:shadow-md transition-all h-full flex flex-col relative z-0 overflow-hidden`}>
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`${iconBgColor} ${iconTextColor} p-2 rounded relative`}>
-                      <FileText className="w-6 h-6" />
-                      {isLocked && !isPostponed && (
-                        <div className="absolute -right-1.5 -bottom-1.5 bg-emerald-100 text-emerald-700 rounded-full p-0.5 border border-white">
-                          <Lock className="w-3 h-3" />
-                        </div>
-                      )}
-                    </div>
-                    {badgeText && (
-                      <span className={`text-[10px] font-bold px-2 py-1 rounded border ${badgeColor} uppercase tracking-tighter self-center`}>
+              <Link key={form.id || (form as any)._id} href={`/forms/${form.id}`} className="block group">
+                <div className={`bg-white rounded-xl border ${borderColor} p-4 hover:shadow-md transition-all h-full flex flex-col relative overflow-hidden`}>
+                  {/* Card Top: Status & Always-Accessible Mobile Actions */}
+                  <div className="flex justify-between items-center gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`${iconBgColor} ${iconTextColor} p-1.5 rounded-lg relative`}>
+                        <FileText className="w-4 h-4" />
+                        {isLocked && !isPostponed && (
+                          <div className="absolute -right-1 -bottom-1 bg-emerald-600 text-white rounded-full p-0.5">
+                            <Lock className="w-2.5 h-2.5" />
+                          </div>
+                        )}
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${badgeColor} uppercase tracking-tight`}>
                         {badgeText}
                       </span>
-                    )}
+                    </div>
+
+                    {/* Action Buttons - Always visible on mobile, subtle on desktop */}
+                    <div className="flex items-center gap-1 relative z-10">
+                      <button 
+                        type="button"
+                        onClick={(e) => duplicateForm(form, e)}
+                        className="text-slate-500 hover:text-blue-700 p-1.5 bg-slate-50 hover:bg-blue-50 rounded-lg border border-slate-200 transition-colors"
+                        title="Formu Kopyala"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                      {isAdmin && (
+                        <button 
+                          type="button"
+                          onClick={(e) => toggleTemplateStatus(form, e)}
+                          className={`p-1.5 rounded-lg border transition-colors ${
+                            form.isTemplate
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : 'bg-slate-50 text-slate-500 hover:text-amber-700 hover:bg-amber-50 border-slate-200'
+                          }`}
+                          title={form.isTemplate ? "Şablonu İptal Et" : "Şablon Olarak Belirle"}
+                        >
+                          <Bookmark className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button 
+                          type="button"
+                          onClick={(e) => toggleActiveStatus(form, e)}
+                          className={`p-1.5 rounded-lg border transition-colors ${
+                            isPassive
+                              ? 'bg-amber-100 text-amber-800 border-amber-300'
+                              : 'bg-slate-50 text-slate-500 hover:text-amber-700 hover:bg-amber-50 border-slate-200'
+                          }`}
+                          title={isPassive ? "Formu Aktif Et" : "Formu Pasif Yap"}
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {!isLocked && isAdmin && (
+                        <button 
+                          type="button"
+                          onClick={(e) => deleteForm(form.id, e)}
+                          className="text-slate-500 hover:text-red-600 p-1.5 bg-slate-50 hover:bg-red-50 rounded-lg border border-slate-200 transition-colors"
+                          title="Formu Sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex gap-1 relative z-10">
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        duplicateForm(form, e);
-                      }}
-                      className="text-slate-400 hover:text-blue-600 p-1.5 bg-white hover:bg-blue-50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Kopyala"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                    {isAdmin && (
-                      <button 
-                        onClick={(e) => toggleTemplateStatus(form, e)}
-                        className={`text-slate-400 hover:text-fuchsia-600 p-1.5 bg-white hover:bg-fuchsia-50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity ${form.isTemplate ? 'text-fuchsia-600 opacity-100' : ''}`}
-                        title={form.isTemplate ? "Şablonu İptal Et" : "Şablon Olarak Belirle"}
-                      >
-                        <Bookmark className="w-4 h-4" />
-                      </button>
-                    )}
-                    {isAdmin && (
-                      <button 
-                        onClick={(e) => toggleActiveStatus(form, e)}
-                        className={`text-slate-400 hover:text-amber-600 p-1.5 bg-white hover:bg-amber-50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity ${isPassive ? 'text-amber-500 opacity-100' : ''}`}
-                        title={isPassive ? "Formu Aktif Et" : "Formu Pasif Yap"}
-                      >
-                        <Lock className="w-4 h-4" />
-                      </button>
-                    )}
-                    {!isLocked && isAdmin && (
-                      <button 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          deleteForm(form.id, e);
-                        }}
-                        className="text-slate-400 hover:text-red-600 p-1.5 bg-white hover:bg-red-50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Formu Sil"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+
+                  {/* Form Title */}
+                  <h3 className="font-bold text-slate-900 text-sm mb-2 line-clamp-2 leading-snug uppercase group-hover:text-blue-700 transition-colors">
+                    {form.title || 'İSİMSİZ KARAR FORMU'}
+                  </h3>
+
+                  {/* Metadata Footer */}
+                  <div className="text-xs font-medium text-slate-600 flex flex-wrap items-center justify-between gap-2 mt-auto pt-3 border-t border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="font-bold text-[10px] uppercase text-slate-400">No:</span>
+                        <strong className="text-slate-800">{form.decisionNo || '-'}</strong>
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-slate-500">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{form.decisionDate ? new Date(form.decisionDate).toLocaleDateString('tr-TR') : 'Tarihsiz'}</span>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                      <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
+                        {itemCount} Madde
+                      </span>
+                      {tableCount > 0 && (
+                        <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded">
+                          {tableCount} Tablo
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <h3 className="font-bold text-slate-900 text-lg mb-2 line-clamp-2 leading-tight uppercase text-sm">
-                  {form.title || 'İSİMSİZ FORM'}
-                </h3>
-                <div className="text-[13px] font-medium text-slate-500 flex flex-col gap-1.5 mt-auto pt-4 border-t border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold uppercase text-xs text-slate-400">Karar No:</span> {form.decisionNo || '-'}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-slate-400" />
-                    <span>{form.decisionDate ? new Date(form.decisionDate).toLocaleDateString('tr-TR') : 'Tarih Belirtilmemiş'}</span>
-                  </div>
-                </div>
-              </div>
-            </Link>
+              </Link>
             );
           })}
         </div>

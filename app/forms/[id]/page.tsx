@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { db, useLiveQuery, OfficialForm, FormItem, Member, MemberSnapshot } from '@/lib/db';
 import { AppLayout } from '@/components/Layout';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { useReactToPrint } from 'react-to-print';
 import { toast } from 'sonner';
@@ -13,24 +13,25 @@ import {
   ExcelTableImportModal, 
   isOverLimitRow, 
   isStringIncomeRow, 
-  isHighlightRow, 
   findIncomeColumnIndex, 
   sortAndProcessTableByIncome, 
-  parseTurkishCurrency, 
   isTableMuhtaclikActive,
   isSiraColumn
 } from '@/components/ExcelTableImportModal';
 import { 
   Save, Printer, ArrowLeft, Plus, Trash2, 
-  Table as TableIcon, CheckSquare, ListOrdered, Minus, Lock, Unlock,
-  CheckCircle, ArrowRight, ArrowUp, ArrowDown, ChevronUp, ChevronDown,
-  FileText, MessageSquare, Users, Eye, Edit3, Loader2, FileUp, FileDown,
-  ArrowUpDown, GripVertical, X, Scale, Sparkles
+  Table as TableIcon, ListOrdered, Minus, Lock, Unlock,
+  CheckCircle, ArrowUp, ArrowDown, ChevronUp, ChevronDown,
+  FileText, Users, Eye, Edit3, Loader2, FileUp, FileDown,
+  ArrowUpDown, GripVertical, X, Scale, Sparkles,
+  Bold, Italic, Underline as UnderlineIcon,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  List, Undo, Redo, Eraser, Settings2, Calendar, Clock, Hash, AlertTriangle
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { RichTextEditor } from '@/components/RichTextEditor';
+import { RichTextEditor, Editor } from '@/components/RichTextEditor';
 import { DebouncedInput } from '@/components/DebouncedInput';
+import { usePersonnel } from '@/components/PersonnelProvider';
 
 function PrintPreview({ form, members, settings }: { form: OfficialForm, members: Member[], settings: any }) {
   const activeLayout = { ...(form.layout || {}), ...(settings?.layout || {}) };
@@ -51,12 +52,10 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
   const marginY = activeLayout?.marginY ?? 10;
   const signatureSpacing = activeLayout?.signatureSpacing ?? 1; 
 
-  // Use snapshots if available, otherwise current members
   const finalSigners = form.signatureSnapshots && form.signatureSnapshots.length > 0
     ? form.signatureSnapshots
     : selectedMembers;
 
-  // Split members into groups for professional signature layout
   const topSigners = finalSigners.slice(0, 1); 
   const otherSigners = finalSigners.slice(1);
 
@@ -168,8 +167,6 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
         fontFamily: activeLayout?.fontFamily || 'Verdana, sans-serif',
       }}
     >
-      
-      {/* Watermark - Using fixed position for multi-page print support */}
       {(activeLayout?.watermarkText || activeLayout?.watermarkText2) && (
         <div 
           className="watermark-overlay fixed inset-0 pointer-events-none flex justify-center items-center overflow-hidden"
@@ -194,9 +191,7 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
         </div>
       )}
 
-      {/* Content wrapper to stay above watermark */}
       <div className="relative z-10 flex flex-col flex-1 h-full">
-        {/* Header Flex Layout to avoid overlap */}
         <div className="flex justify-between items-start mb-8 text-center font-bold">
           {settings?.leftLogoBase64 ? (
             <img src={settings.leftLogoBase64} alt="Left Logo" className="h-[25mm] w-[25mm] object-contain shrink-0" style={{ opacity: (activeLayout?.logoOpacity ?? 100) / 100 }} />
@@ -236,7 +231,6 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
           </div>
         </div>
 
-        {/* Items */}
         <div 
           className="flex flex-col flex-1" 
           style={{ 
@@ -249,9 +243,7 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
           {form.items?.map((item, index) => renderItem(item, index))}
         </div>
 
-        {/* Decision Note and Signatures - Kept together on same page */}
         <div className="break-inside-avoid mt-8">
-          {/* Footer Text */}
           <div className="font-bold text-center text-[14px]" style={{ fontSize: activeLayout?.fontSizeContent ? `${activeLayout?.fontSizeContent}px` : '11px' }}>
             {form.footerText.includes('<') ? (
               <div className="rich-text-preview" dangerouslySetInnerHTML={{ __html: form.footerText }} />
@@ -260,7 +252,6 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
             )}
           </div>
 
-          {/* Signatures */}
           <div className="mt-12 w-full" style={{ 
               opacity: (form.layout?.signatureOpacity ?? 100) / 100,
               fontFamily: form.layout?.signatureFontFamily || 'inherit'
@@ -273,7 +264,7 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
                       fontSize: activeLayout?.signatureFontSize ? `${activeLayout?.signatureFontSize}px` : '12px',
                       lineHeight: 1.1
                     }}>{formatMemberName(m)}</div>
-                    <div style={{ height: `${signatureSpacing}px` }}></div> {/* Signature Space */}
+                    <div style={{ height: `${signatureSpacing}px` }}></div>
                     <div className="font-bold whitespace-pre-wrap" style={{ 
                       fontSize: activeLayout?.signatureFontSize ? `${activeLayout?.signatureFontSize}px` : '12px',
                       lineHeight: 1.1
@@ -291,7 +282,7 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
                       fontSize: activeLayout?.signatureFontSize ? `${activeLayout?.signatureFontSize}px` : '12px',
                       lineHeight: 1.1
                     }}>{formatMemberName(m)}</div>
-                    <div style={{ height: `${signatureSpacing}px` }}></div> {/* Signature Space */}
+                    <div style={{ height: `${signatureSpacing}px` }}></div>
                     <div className="font-bold whitespace-pre-wrap" style={{ 
                       fontSize: activeLayout?.signatureFontSize ? `${activeLayout?.signatureFontSize}px` : '12px',
                       lineHeight: 1.1
@@ -303,7 +294,6 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
           </div>
         </div>
       </div>
-
 
       <style dangerouslySetInnerHTML={{__html: `
         .dotted-leader p { 
@@ -343,38 +333,28 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
           .break-inside-avoid { page-break-inside: avoid; break-inside: avoid; }
         }
         
-        /* A4 Page View Simulation */
         .a4-page {
           width: 210mm;
           min-height: 297mm;
           padding: 0;
           margin: 0 auto;
           background: white;
-          box-shadow: none;
+          box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.08);
           position: relative;
           display: flex;
           flex-direction: column;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
+          border: 1px solid #cbd5e1;
+          border-radius: 2px;
         }
 
         .a4-page::after {
           content: "";
           position: absolute;
           top: 0; left: 0; right: 0; bottom: 0;
-          background-image: linear-gradient(to bottom, transparent 296.5mm, #e2e8f0 296.5mm, #e2e8f0 297mm, transparent 297mm);
+          background-image: linear-gradient(to bottom, transparent 296.5mm, #cbd5e1 296.5mm, #cbd5e1 297mm, transparent 297mm);
           background-size: 100% 297mm;
           z-index: 5;
           pointer-events: none;
-        }
-
-        .preview-container {
-          background-color: #f1f5f9;
-          padding: 40px 0;
-          min-height: 100%;
-          display: flex;
-          flex-direction: column;
-          gap: 30px;
         }
 
         @media print {
@@ -384,10 +364,6 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
             border: none !important;
             box-shadow: none !important;
             width: 100% !important;
-          }
-          .preview-container {
-            padding: 0 !important;
-            background: transparent !important;
           }
           .watermark-overlay {
             position: fixed !important;
@@ -403,8 +379,6 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
   );
 }
 
-import { usePersonnel } from '@/components/PersonnelProvider';
-
 export default function FormEditorPage() {
   const params = useParams();
   const id = params.id as string;
@@ -416,12 +390,29 @@ export default function FormEditorPage() {
   const isAdmin = personnel?.isAdmin || false;
 
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
-  const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
   const [localForm, setLocalForm] = useState<OfficialForm | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Word Canvas Interactive States
+  const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
+  const [, setEditorTick] = useState(0);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  const [openTablePanelId, setOpenTablePanelId] = useState<string | null>(null);
+  const [isSignerPickerOpen, setIsSignerPickerOpen] = useState(false);
+  const [isHeaderEditOpen, setIsHeaderEditOpen] = useState(false);
+  const [isPageSetupOpen, setIsPageSetupOpen] = useState(false);
+
+  // Drag & Drop State for Live Canvas Blocks + Modal
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
+
+  // Preview Age/Gender Auto-Sort
   const [sortOrder, setSortOrder] = useState<'none' | 'asc' | 'desc'>('none');
   const [genderPriority, setGenderPriority] = useState<'female' | 'male'>('female');
+
+  // Modals
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, message: string, onConfirm: () => void}>({ isOpen: false, message: '', onConfirm: () => {} });
   const [wordImportState, setWordImportState] = useState<{
     isOpen: boolean;
@@ -445,11 +436,21 @@ export default function FormEditorPage() {
     rawColumns: [],
     rawRows: []
   });
-  const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   const printRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync active Tiptap editor selection/transaction changes to re-render Word Ribbon active states
+  useEffect(() => {
+    if (!activeEditor) return;
+    const handleTransaction = () => setEditorTick(t => t + 1);
+    activeEditor.on('transaction', handleTransaction);
+    activeEditor.on('selectionUpdate', handleTransaction);
+    return () => {
+      activeEditor.off('transaction', handleTransaction);
+      activeEditor.off('selectionUpdate', handleTransaction);
+    };
+  }, [activeEditor]);
 
   // Auto-save flush on page unload
   useEffect(() => {
@@ -461,7 +462,6 @@ export default function FormEditorPage() {
         db.forms.flushQueueBeacon();
       }
     };
-    // Listen for successful queue saves
     const handleSaveSuccess = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (detail?.id === id) {
@@ -496,7 +496,6 @@ export default function FormEditorPage() {
         } catch (e) {}
       }
       setLocalForm(prev => {
-        // Prevent 3s background polling from overwriting newer local edits
         if (prev && prev.id === form.id && (prev.updatedAt || 0) >= (form.updatedAt || 0)) {
           return prev;
         }
@@ -521,7 +520,16 @@ export default function FormEditorPage() {
 
   const handlePrint = useReactToPrint({ contentRef: printRef, documentTitle: localForm?.title || 'Karar Formu' });
 
-  if (!localForm || !allMembers) return <div className="p-8 text-center text-slate-500 italic">Yükleniyor...</div>;
+  if (!localForm || !allMembers) {
+    return (
+      <AppLayout fullWidth>
+        <div className="flex items-center justify-center h-96 gap-2 text-slate-500 font-bold text-sm">
+          <Loader2 className="w-5 h-5 animate-spin text-blue-700" />
+          <span>Belge yükleniyor...</span>
+        </div>
+      </AppLayout>
+    );
+  }
 
   const canUnlock = () => {
     if (!localForm.decisionDate) return true;
@@ -540,7 +548,6 @@ export default function FormEditorPage() {
     setLocalForm(updated);
     setIsDirty(true);
     localStorage.setItem(`draft_form_${id}`, JSON.stringify(updated));
-    // Queue auto-save (debounced 3s)
     db.forms.queueSave(updated);
   };
 
@@ -551,7 +558,7 @@ export default function FormEditorPage() {
       await db.forms.put(localForm);
       setIsDirty(false);
       localStorage.removeItem(`draft_form_${id}`);
-      toast.success('Form kaydedildi.');
+      toast.success('Belge buluta kaydedildi.');
     } catch (e) {
       toast.error('Hata: Buluta kayıt yapılamadı. İnternet bağlantınızı kontrol edin.');
     } finally {
@@ -562,6 +569,7 @@ export default function FormEditorPage() {
   const addItem = (type: 'numbered' | 'bullet' = 'numbered') => {
     const newItem: FormItem = { id: uuidv4(), type, text: '' };
     updateForm({ items: [...(localForm.items || []), newItem] });
+    setActiveBlockId(newItem.id);
   };
 
   const addItemAt = (index: number, type: 'numbered' | 'bullet' = 'numbered') => {
@@ -569,14 +577,7 @@ export default function FormEditorPage() {
     const newItems = [...(localForm.items || [])];
     newItems.splice(index, 0, newItem);
     updateForm({ items: newItems });
-  };
-
-  const addSubItemAt = (parentId: string, index: number, type: 'numbered' | 'bullet' = 'bullet') => {
-    const parent = localForm.items?.find(i => i.id === parentId);
-    if (!parent) return;
-    const newSubItems = [...(parent.subItems || [])];
-    newSubItems.splice(index, 0, { id: uuidv4(), type, text: '' });
-    updateItem(parentId, { subItems: newSubItems });
+    setActiveBlockId(newItem.id);
   };
 
   const moveItem = (itemId: string, newIndex: number, parentId: string | null = null) => {
@@ -636,11 +637,9 @@ export default function FormEditorPage() {
         };
       };
 
-      const ensureParagraph = (html: string) => {
-        let trimmed = html.trim();
-        // Remove trailing dots from the end of the paragraph, ignoring any closing HTML tags
+      const ensureParagraph = (htmlStr: string) => {
+        let trimmed = htmlStr.trim();
         trimmed = trimmed.replace(/\.+(?=(\s*<\/[^>]+>)*\s*$)/g, '');
-        
         if (!trimmed.startsWith('<p>') && !trimmed.startsWith('<h')) {
           return `<p>${trimmed}</p>`;
         }
@@ -652,7 +651,7 @@ export default function FormEditorPage() {
           Array.from(node.children).forEach(li => {
             if (li.tagName === 'LI') {
                const tableNode = li.querySelector('table');
-               let clonedLi = li.cloneNode(true) as Element;
+               const clonedLi = li.cloneNode(true) as Element;
                const innerTable = clonedLi.querySelector('table');
                if (innerTable) innerTable.remove();
                
@@ -789,7 +788,6 @@ export default function FormEditorPage() {
         return paddedRow;
       });
 
-      // Muhtaçlık kontrollü Excel İçe Aktarma Modalı açılır
       setExcelImportState({
         isOpen: true,
         itemId,
@@ -843,7 +841,6 @@ export default function FormEditorPage() {
       ? table.incomeColumnIndex
       : -1;
 
-    // Sütun seçilmemişse (-1) veya düzenlenen sütun kontrol sütunu değilse hiçbir değişiklik yapma
     if (targetIncomeCol < 0 || cI !== targetIncomeCol) {
       return;
     }
@@ -879,10 +876,12 @@ export default function FormEditorPage() {
         enableMuhtaclikCheck: false
       } 
     });
+    setOpenTablePanelId(itemId);
   };
 
   const removeTableFromItem = (itemId: string) => {
     updateItem(itemId, { hasTable: false, table: undefined });
+    if (openTablePanelId === itemId) setOpenTablePanelId(null);
   };
 
   const exportExcelFromTable = async (table: NonNullable<FormItem['table']>, itemIndex: number) => {
@@ -903,1377 +902,1580 @@ export default function FormEditorPage() {
     }
   };
 
-  return (
-    <AppLayout fullWidth={activeTab === 'editor'}>
-      <div className="flex flex-col h-full h-[calc(100vh-2rem)]">
-        {/* Sticky Executive Command Bar */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xs rounded-xl px-3 sm:px-4 py-2.5 mb-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 transition-all">
-          {/* Left: Back Link + Title + Live Status */}
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <Link 
-              href="/" 
-              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors shrink-0" 
-              title="Gündem Listesine Dön"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
+  // Document visual settings for the live Word canvas
+  const activeLayout = { ...(localForm.layout || {}), ...(settings?.layout || {}) };
+  const docFontFamily = activeLayout?.fontFamily || 'Verdana, sans-serif';
+  const docFontSizeContent = activeLayout?.fontSizeContent ? `${activeLayout.fontSizeContent}px` : '11px';
+  const docFontSizeTitle = activeLayout?.fontSizeTitle ? `${activeLayout.fontSizeTitle}px` : '12px';
+  const selectedMembers = allMembers.filter(m => localForm.signatureMembers.includes(m.id));
+  const finalSigners = localForm.signatureSnapshots && localForm.signatureSnapshots.length > 0
+    ? localForm.signatureSnapshots
+    : selectedMembers;
+  const topSigners = finalSigners.slice(0, 1);
+  const otherSigners = finalSigners.slice(1);
 
-            <div className="flex flex-col min-w-0 flex-1">
-              <div className="flex items-center gap-2">
+  const formatMemberTitle = (m: Member | MemberSnapshot) => {
+    let title = m.title;
+    if (m.isProxy && m.proxyTitle) title = m.proxyTitle;
+    return title;
+  };
+
+  const formatMemberName = (m: Member | MemberSnapshot) => {
+    if (m.isProxy && m.proxyName) {
+      return `${m.proxyName}\n(${m.name} Vekili)`;
+    }
+    return m.name;
+  };
+
+  const ribbonBtn = "p-1.5 rounded text-slate-700 hover:bg-slate-200/80 disabled:opacity-30 disabled:hover:bg-transparent transition-colors";
+  const ribbonBtnActive = "p-1.5 rounded bg-blue-100 text-blue-800 font-bold shadow-2xs transition-colors";
+
+  return (
+    <AppLayout fullWidth>
+      <div className="flex flex-col h-[calc(100vh-1rem)] sm:h-[calc(100vh-1.5rem)]">
+        {/* ==================== WORD RIBBON COMMAND HEADER ==================== */}
+        <header className="sticky top-0 z-30 bg-white border border-slate-300 shadow-sm rounded-xl mb-3 shrink-0 overflow-visible">
+          {/* Top Bar: Document Title, Status, Mode Switch, Primary Actions */}
+          <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-900 text-white rounded-t-xl">
+            {/* Left: Back + Doc Title + Save Badge */}
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <Link 
+                href="/" 
+                className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors shrink-0" 
+                title="Karar Listesine Dön"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Link>
+
+              <div className="flex items-center gap-2 min-w-0 flex-1 max-w-md">
+                <FileText className="w-4 h-4 text-blue-400 shrink-0 hidden sm:block" />
                 <DebouncedInput 
                   type="text" 
                   value={localForm.title} 
                   disabled={!canEditForm}
                   onChange={(val) => updateForm({ title: val })}
-                  className={`text-sm font-bold bg-transparent border border-transparent hover:border-slate-200 focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1.5 py-0.5 text-slate-900 placeholder-slate-400 uppercase outline-none truncate w-full transition-all ${!canEditForm ? 'cursor-not-allowed opacity-70' : ''}`}
-                  placeholder="Form Başlığı Giriniz..."
+                  className={`text-xs sm:text-sm font-bold bg-slate-800/90 border border-slate-700 hover:border-slate-600 focus:border-blue-400 focus:bg-slate-800 rounded-lg px-2.5 py-1 text-white placeholder-slate-400 uppercase outline-none truncate w-full transition-all ${!canEditForm ? 'cursor-not-allowed opacity-70' : ''}`}
+                  placeholder="BELGE BAŞLIĞI..."
                 />
               </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {activeTab === 'editor' ? 'DÜZENLEME MODU' : 'BASKI ÖNİZLEME'}
-                </span>
-                <span className="text-slate-300">•</span>
+
+              {/* Save Status Pill */}
+              <div className="shrink-0">
                 {isSaving ? (
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                    <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
-                    Kaydediliyor...
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-300 bg-blue-950/80 px-2 py-0.5 rounded-full border border-blue-800">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span className="hidden md:inline">Kaydediliyor</span>
                   </span>
                 ) : isDirty ? (
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                    Kaydedilmemiş Değişiklikler
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-950/80 px-2 py-0.5 rounded-full border border-amber-800">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    <span className="hidden md:inline">Taslak (Kaydedilmedi)</span>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    <CheckCircle className="w-3 h-3 text-emerald-600" />
-                    Kaydedildi
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-800">
+                    <CheckCircle className="w-3 h-3" />
+                    <span className="hidden md:inline">Kaydedildi</span>
                   </span>
                 )}
               </div>
             </div>
-          </div>
 
-          {/* Center: Segmented View Pill */}
-          <div className="flex items-center justify-center shrink-0">
-            <div className="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200/80">
+            {/* Center: Mode Switcher (Word Sayfası / Baskı Önizleme) */}
+            <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 shrink-0">
               <button
+                type="button"
                 onClick={() => setActiveTab('editor')}
-                className={`px-3 sm:px-4 py-1.5 text-xs font-bold uppercase transition-all flex items-center gap-1.5 rounded-lg ${
+                className={`px-2.5 sm:px-3 py-1 text-[11px] font-bold uppercase transition-all flex items-center gap-1.5 rounded-md ${
                   activeTab === 'editor' 
-                    ? 'bg-white text-blue-700 shadow-xs font-extrabold' 
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    ? 'bg-blue-600 text-white shadow-xs' 
+                    : 'text-slate-300 hover:text-white'
                 }`}
               >
                 <Edit3 className="w-3.5 h-3.5" />
-                <span>DÜZENLE</span>
+                <span>Word Düzeni</span>
               </button>
               {isAdmin && (
                 <button
+                  type="button"
                   onClick={() => setActiveTab('preview')}
-                  className={`px-3 sm:px-4 py-1.5 text-xs font-bold uppercase transition-all flex items-center gap-1.5 rounded-lg ${
+                  className={`px-2.5 sm:px-3 py-1 text-[11px] font-bold uppercase transition-all flex items-center gap-1.5 rounded-md ${
                     activeTab === 'preview' 
-                      ? 'bg-white text-blue-700 shadow-xs font-extrabold' 
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                      ? 'bg-blue-600 text-white shadow-xs' 
+                      : 'text-slate-300 hover:text-white'
                   }`}
                 >
                   <Eye className="w-3.5 h-3.5" />
-                  <span>ÖNİZLE</span>
+                  <span>Baskı / Sırala</span>
+                </button>
+              )}
+            </div>
+
+            {/* Right: Save, Lock & Print */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={saveToCloud}
+                disabled={isSaving || !isDirty || !canEditForm}
+                className={`px-2.5 sm:px-3 py-1 text-[11px] font-bold uppercase rounded-lg flex items-center gap-1.5 transition-all ${
+                  isDirty && !isSaving && canEditForm
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs'
+                    : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                }`}
+                title="Buluta Kaydet"
+              >
+                {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">Kaydet</span>
+              </button>
+
+              {isAdmin && !localForm.isLocked && (
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setConfirmModal({
+                      isOpen: true,
+                      message: 'Kararı kesinleştirmek istiyor musunuz? Bu işlemden sonra sadece toplantı ertelenirse değişiklik yapılabilir.',
+                      onConfirm: async () => {
+                        const snapshots = allMembers
+                          .filter(m => localForm.signatureMembers.includes(m.id))
+                          .map(m => ({
+                            id: m.id,
+                            name: m.name,
+                            title: m.title,
+                            isProxy: m.isProxy,
+                            proxyName: m.proxyName,
+                            proxyTitle: m.proxyTitle,
+                            order: m.order
+                          }));
+                        await updateForm({ isLocked: true, signatureSnapshots: snapshots });
+                        toast.success('Belge kesinleştirildi.');
+                      }
+                    });
+                  }}
+                  disabled={isSaving}
+                  className="flex items-center gap-1 bg-amber-600 hover:bg-amber-500 text-white px-2.5 py-1 rounded-lg font-bold text-[11px] uppercase transition-all"
+                  title="Kararı Kesinleştir ve İmzaları Sabitle"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Kesinleştir</span>
+                </button>
+              )}
+
+              {isAdmin && localForm.isLocked && !localForm.isPostponed && (
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (!canUnlock()) {
+                      toast.error('Toplantı tarihinden itibaren 2 gün geçtiği için bu formun kilidi açılamaz.');
+                      return;
+                    }
+                    updateForm({ isLocked: false });
+                  }}
+                  disabled={isSaving || !canUnlock()}
+                  title={!canUnlock() ? 'Toplantı tarihinden 2 gün geçtiği için kilit açılamaz' : 'Kilidi Aç'}
+                  className={`flex items-center gap-1 ${!canUnlock() ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-500 text-white'} px-2.5 py-1 rounded-lg font-bold text-[11px] uppercase transition-all`}
+                >
+                  <Unlock className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Kilidi Aç</span>
+                </button>
+              )}
+
+              {isAdmin && (
+                <button 
+                  type="button"
+                  onClick={() => handlePrint()}
+                  className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-2.5 sm:px-3 py-1 rounded-lg font-bold text-[11px] uppercase transition-all shadow-xs"
+                  title="A4 Yazdır / PDF Kaydet"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Yazdır</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Right: Quick Context Actions */}
-          <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
-            {activeTab === 'editor' && (
-              <>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={!canEditForm}
-                  className="px-2.5 sm:px-3 py-1.5 text-xs font-bold uppercase rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
-                  title="Word (.docx) Dosyasından Gündem Maddeleri Aktar"
-                >
-                  <FileUp className="w-3.5 h-3.5 text-blue-600" />
-                  <span className="hidden xl:inline">Word'den Al</span>
-                </button>
-
-                <button
-                  onClick={() => setIsReorderModalOpen(true)}
-                  disabled={!canEditForm || !localForm.items?.length}
-                  className="px-2.5 sm:px-3 py-1.5 text-xs font-bold uppercase rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
-                  title="Maddeleri Hızlıca Sırala"
-                >
-                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-600" />
-                  <span className="hidden xl:inline">Sırala</span>
-                </button>
-
-                <button
-                  onClick={() => addItem('numbered')}
-                  disabled={!canEditForm}
-                  className="px-3 py-1.5 text-xs font-bold uppercase rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-xs shadow-blue-600/20 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Madde Ekle</span>
-                </button>
-
-                <button
-                  onClick={saveToCloud}
-                  disabled={isSaving || !isDirty || !canEditForm}
-                  className={`px-3.5 py-1.5 text-xs font-bold uppercase rounded-lg flex items-center gap-1.5 shadow-xs transition-all active:scale-95 ${
-                    isDirty && !isSaving && canEditForm
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
-                      : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
-                  }`}
-                  title={isDirty ? 'Değişiklikleri Buluta Kaydet' : 'Tüm Değişiklikler Kaydedildi'}
-                >
-                  {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  <span>Kaydet</span>
-                </button>
-              </>
-            )}
-
-            {activeTab === 'preview' && (
-              <>
-                {!localForm.isLocked && (
-                  <button 
-                    onClick={() => {
-                      setConfirmModal({
-                        isOpen: true,
-                        message: 'Kararı kesinleştirmek istiyor musunuz? Bu işlemden sonra sadece toplantı ertelenirse değişiklik yapılabilir.',
-                        onConfirm: async () => {
-                          const snapshots = allMembers
-                            .filter(m => localForm.signatureMembers.includes(m.id))
-                            .map(m => ({
-                              id: m.id,
-                              name: m.name,
-                              title: m.title,
-                              isProxy: m.isProxy,
-                              proxyName: m.proxyName,
-                              proxyTitle: m.proxyTitle,
-                              order: m.order
-                            }));
-                          await updateForm({ isLocked: true, signatureSnapshots: snapshots });
-                          toast.success('Belge kesinleştirildi. Yazdırabilirsiniz.');
-                        }
-                      });
-                    }}
-                    disabled={isSaving}
-                    className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg font-bold text-xs shadow-xs transition-all active:scale-95 disabled:opacity-50"
-                  >
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>KESİNLEŞTİR</span>
-                  </button>
-                )}
-                {localForm.isLocked && !localForm.isPostponed && (
-                  <button 
-                    onClick={() => {
-                      if (!canUnlock()) {
-                        toast.error('Toplantı tarihinden itibaren 2 gün geçtiği için bu formun kilidi açılamaz.');
-                        return;
-                      }
-                      updateForm({ isLocked: false });
-                    }}
-                    disabled={isSaving || !canUnlock()}
-                    title={!canUnlock() ? 'Toplantı tarihinden 2 gün geçtiği için kilit açılamaz' : 'Kilidi Aç'}
-                    className={`flex items-center gap-1.5 ${!canUnlock() ? 'bg-slate-400 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700 active:scale-95'} text-white px-3 py-1.5 rounded-lg font-bold text-xs shadow-xs transition-all disabled:opacity-50`}
-                  >
-                    <Unlock className="w-3.5 h-3.5" />
-                    <span>KİLİDİ AÇ</span>
-                  </button>
-                )}
-                <button 
-                  onClick={() => handlePrint()}
-                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg font-bold text-xs shadow-xs shadow-emerald-600/20 transition-all active:scale-95"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>YAZDIR</span>
-                </button>
-              </>
-            )}
-          </div>
-        </header>
-
-        {/* Content Area with Sidebar */}
-        <div className="flex-1 flex gap-8 overflow-hidden relative">
+          {/* Bottom Bar: Word Formatting Ribbon & Block Tools (Visible in Word Editor Mode) */}
           {activeTab === 'editor' && (
-            <div className="fixed right-2 lg:right-6 top-1/2 -translate-y-1/2 z-40 print:hidden flex flex-col gap-3 items-end">
-              <div className="flex flex-col gap-1 lg:gap-2 p-1.5 lg:p-2 bg-white/60 hover:bg-white/95 backdrop-blur-md rounded-xl lg:rounded-3xl border border-slate-200 shadow-xl lg:shadow-2xl opacity-60 hover:opacity-100 transition-all duration-500 group/panel w-10 lg:w-12 hover:w-44 overflow-hidden">
-                <div className="flex items-center gap-2 px-2 mb-1 opacity-0 group-hover/panel:opacity-100 transition-opacity duration-300 min-max">
-                  <div className="w-1.5 h-4 bg-blue-600 rounded-full"></div>
-                  <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Navigasyon</h3>
-                </div>
-                <nav className="flex flex-col gap-1 lg:gap-1.5">
-                  {[
-                    { id: 'top', label: 'En Üste', icon: ArrowUp },
-                    ...(isAdmin ? [{ id: 'header', label: 'Başlık', icon: FileText }] : []),
-                    { id: 'items', label: 'Gündem', icon: ListOrdered },
-                    ...(isAdmin ? [
-                      { id: 'footer', label: 'Not', icon: MessageSquare },
-                      { id: 'signatures', label: 'İmzalar', icon: Users }
-                    ] : []),
-                    { id: 'bottom', label: 'En Alta', icon: ArrowDown },
-                  ].map(section => {
-                    const Icon = section.icon;
-                    return (
-                      <button 
-                        key={section.id}
-                        onClick={() => {
-                          const container = document.getElementById('main-scroll-container');
-                          if (!container) return;
-                          if (section.id === 'top') {
-                            container.scrollTo({ top: 0, behavior: 'smooth' });
-                          } else if (section.id === 'bottom') {
-                            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-                          } else {
-                            const el = document.getElementById(section.id);
-                            if (el) {
-                               const offset = el.offsetTop;
-                               container.scrollTo({ top: offset, behavior: 'smooth' });
-                            }
-                          }
-                        }}
-                        className="group/btn flex items-center p-2 lg:p-2.5 text-[10px] font-bold text-slate-600 hover:bg-blue-600 hover:text-white rounded-lg lg:rounded-xl transition-all duration-300 uppercase tracking-tight active:scale-90 border border-transparent hover:border-blue-400 min-w-max"
-                        title={section.label}
-                      >
-                        <Icon className="w-4 h-4 shrink-0" />
-                        <span className="opacity-0 group-hover/panel:opacity-100 transition-opacity duration-300 ml-3 whitespace-nowrap">{section.label}</span>
-                      </button>
-                    );
-                  })}
-                </nav>
-              </div>
-              
-              <button 
-                onClick={saveToCloud}
-                disabled={isSaving || !isDirty || !canEditForm}
-                className={`relative flex items-center w-10 lg:w-12 h-10 lg:h-12 hover:w-28 lg:hover:w-32 rounded-xl lg:rounded-2xl font-bold text-[11px] shadow-xl transition-all duration-300 overflow-hidden group/savebtn uppercase tracking-widest ${
-                  isDirty && !isSaving && canEditForm
-                    ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105' 
-                    : 'bg-white/80 backdrop-blur-md text-slate-400 border border-slate-200 cursor-not-allowed opacity-70'
-                }`}
-                title="Kaydet"
-              >
-                <div className="absolute left-0 w-10 lg:w-12 h-10 lg:h-12 flex items-center justify-center shrink-0">
-                  {isSaving ? <Loader2 className="w-4 h-4 lg:w-5 lg:h-5 animate-spin" /> : <Save className="w-4 h-4 lg:w-5 lg:h-5" />}
-                </div>
-                <span className="absolute left-9 lg:left-11 opacity-0 group-hover/savebtn:opacity-100 transition-opacity duration-300 whitespace-nowrap">KAYDET</span>
-              </button>
-            </div>
-          )}
+            <div className="px-2.5 py-1.5 bg-slate-50 flex flex-wrap items-center justify-between gap-2 rounded-b-xl text-xs">
+              {/* Formatting Controls bound to activeEditor */}
+              <div className="flex items-center gap-0.5 flex-wrap">
+                <button
+                  type="button"
+                  disabled={!activeEditor || !canEditForm}
+                  onClick={() => activeEditor?.chain().focus().toggleBold().run()}
+                  className={activeEditor?.isActive('bold') ? ribbonBtnActive : ribbonBtn}
+                  title="Kalın (Ctrl+B)"
+                >
+                  <Bold className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={!activeEditor || !canEditForm}
+                  onClick={() => activeEditor?.chain().focus().toggleItalic().run()}
+                  className={activeEditor?.isActive('italic') ? ribbonBtnActive : ribbonBtn}
+                  title="İtalik (Ctrl+I)"
+                >
+                  <Italic className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={!activeEditor || !canEditForm}
+                  onClick={() => activeEditor?.chain().focus().toggleUnderline().run()}
+                  className={activeEditor?.isActive('underline') ? ribbonBtnActive : ribbonBtn}
+                  title="Altı Çizili (Ctrl+U)"
+                >
+                  <UnderlineIcon className="w-3.5 h-3.5" />
+                </button>
 
-          <div className="flex-1 pb-20 w-full overflow-x-hidden" id="main-scroll-container">
-            {localForm.isActive === false && !isAdmin && (
-              <div className="w-full max-w-5xl mx-auto px-2 sm:px-4 mb-4 mt-2">
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 shadow-sm">
-                  <div className="text-amber-500 mt-0.5">
-                    <Lock className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-amber-800 uppercase tracking-tight">Bu Form Pasif Durumda</h3>
-                    <p className="text-[11px] text-amber-700 mt-1 font-medium">
-                      Bu form geçmiş bir tarihe ait olduğu için pasife çekilmiştir. Admin yetkiniz olmadığı için üzerinde değişiklik yapamazsınız, sadece görüntüleyebilirsiniz.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-            {activeTab === 'editor' ? (
-              <div className="w-full space-y-6 px-1 sm:px-2">
-                {/* Metadata Section - Collapsible Accordion */}
+                <div className="w-px h-4 bg-slate-300 mx-1" />
+
+                <button
+                  type="button"
+                  disabled={!activeEditor || !canEditForm}
+                  onClick={() => activeEditor?.chain().focus().setTextAlign('left').run()}
+                  className={activeEditor?.isActive({ textAlign: 'left' }) ? ribbonBtnActive : ribbonBtn}
+                  title="Sola Hizala"
+                >
+                  <AlignLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={!activeEditor || !canEditForm}
+                  onClick={() => activeEditor?.chain().focus().setTextAlign('center').run()}
+                  className={activeEditor?.isActive({ textAlign: 'center' }) ? ribbonBtnActive : ribbonBtn}
+                  title="Ortala"
+                >
+                  <AlignCenter className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={!activeEditor || !canEditForm}
+                  onClick={() => activeEditor?.chain().focus().setTextAlign('right').run()}
+                  className={activeEditor?.isActive({ textAlign: 'right' }) ? ribbonBtnActive : ribbonBtn}
+                  title="Sağa Hizala"
+                >
+                  <AlignRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={!activeEditor || !canEditForm}
+                  onClick={() => activeEditor?.chain().focus().setTextAlign('justify').run()}
+                  className={activeEditor?.isActive({ textAlign: 'justify' }) ? ribbonBtnActive : ribbonBtn}
+                  title="İki Yana Yasla"
+                >
+                  <AlignJustify className="w-3.5 h-3.5" />
+                </button>
+
+                <div className="w-px h-4 bg-slate-300 mx-1 hidden sm:block" />
+
+                <button
+                  type="button"
+                  disabled={!activeEditor || !canEditForm}
+                  onClick={() => activeEditor?.chain().focus().toggleBulletList().run()}
+                  className={`${activeEditor?.isActive('bulletList') ? ribbonBtnActive : ribbonBtn} hidden sm:inline-flex`}
+                  title="Madde İşaretli Liste"
+                >
+                  <List className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={!activeEditor || !canEditForm}
+                  onClick={() => activeEditor?.chain().focus().undo().run()}
+                  className={`${ribbonBtn} hidden sm:inline-flex`}
+                  title="Geri Al"
+                >
+                  <Undo className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={!activeEditor || !canEditForm}
+                  onClick={() => activeEditor?.chain().focus().redo().run()}
+                  className={`${ribbonBtn} hidden sm:inline-flex`}
+                  title="İleri Al"
+                >
+                  <Redo className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={!activeEditor || !canEditForm}
+                  onClick={() => activeEditor?.chain().focus().unsetAllMarks().clearNodes().run()}
+                  className={`${ribbonBtn} hidden sm:inline-flex`}
+                  title="Biçimlendirmeyi Temizle"
+                >
+                  <Eraser className="w-3.5 h-3.5" />
+                </button>
+
                 {isAdmin && (
-                  <div id="header" className={`bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden scroll-mt-20 transition-all ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
-                    {/* Collapsed Header / Summary Bar */}
-                    <div 
-                      onClick={() => setIsMetadataExpanded(!isMetadataExpanded)}
-                      className="px-4 py-3 bg-slate-50/70 hover:bg-slate-100/80 cursor-pointer flex flex-wrap items-center justify-between gap-3 select-none transition-colors"
-                    >
-                      <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-                        <div className="flex items-center gap-1.5 font-bold text-xs text-slate-700 uppercase tracking-tight">
-                          <FileText className="w-4 h-4 text-blue-600" />
-                          <span>Resmi Form Bilgileri</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                          <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-0.5 rounded-md font-semibold text-slate-700">
-                            <span className="text-[10px] font-bold text-slate-400">Tarih:</span>
-                            {localForm.decisionDate ? new Date(localForm.decisionDate).toLocaleDateString('tr-TR') : 'Belirtilmedi'}
-                          </span>
-                          <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-0.5 rounded-md font-semibold text-slate-700">
-                            <span className="text-[10px] font-bold text-slate-400">Saat:</span>
-                            {localForm.decisionTime || '--:--'}
-                          </span>
-                          <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-0.5 rounded-md font-semibold text-slate-700">
-                            <span className="text-[10px] font-bold text-slate-400">Karar No:</span>
-                            {localForm.decisionNo || '-'}
-                          </span>
-                          {localForm.isPostponed && (
-                            <span className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[10px] px-2 py-0.5 rounded-md uppercase">
-                              Toplantı Ertelendi
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                  <>
+                    <div className="w-px h-4 bg-slate-300 mx-1" />
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsPageSetupOpen(!isPageSetupOpen)}
+                        className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold border transition-colors ${
+                          isPageSetupOpen
+                            ? 'bg-blue-50 border-blue-300 text-blue-800'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                        title="Sayfa ve Yazı Boyutu Ayarları"
+                      >
+                        <Settings2 className="w-3.5 h-3.5 text-blue-700" />
+                        <span className="hidden md:inline">Sayfa Düzeni</span>
+                      </button>
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsMetadataExpanded(!isMetadataExpanded);
-                          }}
-                          className="flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-blue-700 bg-white hover:bg-blue-50/50 border border-slate-200 hover:border-blue-200 px-3 py-1.5 rounded-lg shadow-2xs transition-all active:scale-95"
-                        >
-                          {isMetadataExpanded ? (
-                            <>
-                              <ChevronUp className="w-3.5 h-3.5" />
-                              <span>Bilgileri Gizle</span>
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="w-3.5 h-3.5" />
-                              <span>Bilgileri Düzenle / Kurum Başlığı</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Expanded Detail Panel */}
-                    {isMetadataExpanded && (
-                      <div className="p-5 border-t border-slate-200/80 space-y-4 bg-white animate-in fade-in-50 duration-200">
-                        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Toplantı & Karar Parametreleri</span>
-                          <div className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                            <input 
-                              type="checkbox" 
-                              id="isPostponed"
-                              className="rounded text-blue-700 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
-                              checked={localForm.isPostponed || false}
-                              disabled={isSaving}
-                              onChange={(e) => updateForm({ isPostponed: e.target.checked })}
-                            />
-                            <label htmlFor="isPostponed" className="text-[11px] font-bold text-blue-700 cursor-pointer select-none uppercase">
-                              Toplantı Ertelendi
-                            </label>
+                      {isPageSetupOpen && (
+                        <div className="absolute left-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-3.5 z-50 space-y-3">
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <span className="text-[11px] font-bold text-slate-800 uppercase">Belge Görünüm Ayarları</span>
+                            <button type="button" onClick={() => setIsPageSetupOpen(false)} className="text-slate-400 hover:text-slate-600">
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                          <div>
-                            <div className="flex items-center gap-1 mb-1">
-                              <label className="text-xs font-bold text-slate-600 uppercase block">Karar Tarihi</label>
-                              {!localForm.isPostponed && <Lock className="w-3 h-3 text-slate-400" />}
-                            </div>
-                            <input 
-                              type="date"
-                              disabled={isSaving || !localForm.isPostponed}
-                              className={`w-full text-sm border border-slate-200 rounded-lg p-2 outline-none transition-all ${!localForm.isPostponed || isSaving ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 border-blue-200 bg-white'}`}
-                              value={localForm.decisionDate || ''}
-                              onChange={(e) => {
-                                const newDate = e.target.value;
-                                const formattedDate = newDate ? new Date(newDate).toLocaleDateString('tr-TR') : '.../.../20...';
-                                const newTitle = `${formattedDate} - Karar No: ${localForm.decisionNo || '...'}`;
-                                updateForm({ 
-                                  decisionDate: newDate, 
-                                  headerLine4: newTitle, 
-                                  title: newTitle 
-                                });
-                              }}
-                            />
-                            {!localForm.isPostponed && <p className="text-[10px] text-slate-400 mt-1 italic">* Değiştirmek için 'Ertelendi' seçiniz.</p>}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1 mb-1">
-                              <label className="text-xs font-bold text-slate-600 uppercase block">Karar Saati</label>
-                              {!localForm.isPostponed && <Lock className="w-3 h-3 text-slate-400" />}
-                            </div>
-                            <input 
-                              type="time"
-                              disabled={isSaving || !localForm.isPostponed}
-                              className={`w-full text-sm border border-slate-200 rounded-lg p-2 outline-none transition-all ${!localForm.isPostponed || isSaving ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 border-blue-200 bg-white'}`}
-                              value={localForm.decisionTime || ''}
-                              onChange={(e) => updateForm({ decisionTime: e.target.value })}
-                            />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1 mb-1">
-                              <label className="text-xs font-bold text-slate-600 uppercase block">Karar No</label>
-                              {!localForm.isPostponed && <Lock className="w-3 h-3 text-slate-400" />}
-                            </div>
-                            <DebouncedInput 
-                              className={`w-full text-sm border border-slate-200 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none ${!localForm.isPostponed || isSaving ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 border-blue-200 bg-white'}`} 
-                              value={localForm.decisionNo || ''}
-                              disabled={isSaving || !localForm.isPostponed}
-                              onChange={(val) => {
-                                const formattedDate = localForm.decisionDate ? new Date(localForm.decisionDate).toLocaleDateString('tr-TR') : '.../.../20...';
-                                const newTitle = `${formattedDate} - Karar No: ${val || '...'}`;
-                                updateForm({ 
-                                  decisionNo: val, 
-                                  headerLine4: newTitle, 
-                                  title: newTitle 
-                                });
-                              }}
-                            />
-                            {!localForm.isPostponed && <p className="text-[10px] text-slate-400 mt-1 italic">* Değiştirmek için 'Ertelendi' seçiniz.</p>}
-                          </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-slate-100">
-                          <div className="flex justify-between items-center mb-2">
-                            <label className="text-xs font-bold text-slate-600 uppercase block">Kurum Başlığı (T.C. ...)</label>
-                            <div className="flex items-center gap-2">
-                              <label className="text-[10px] font-bold text-slate-400 uppercase">Satır Aralığı:</label>
-                              <select 
-                                className="text-[11px] border border-slate-200 rounded-md px-2 py-0.5 bg-white text-slate-700"
-                                disabled={isSaving}
+                          <div className="grid grid-cols-2 gap-2.5 text-[11px]">
+                            <div>
+                              <label className="font-bold text-slate-500 block mb-1">Antet Satır Aralığı</label>
+                              <select
                                 value={localForm.layout?.headerLineSpacing || 'normal'}
-                                onChange={(e) => updateForm({ layout: { ...localForm.layout!, headerLineSpacing: e.target.value } })}
+                                disabled={!canEditForm}
+                                onChange={(e) => updateForm({ layout: { ...(localForm.layout || {}), headerLineSpacing: e.target.value } })}
+                                className="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-semibold text-slate-800"
                               >
-                                <option value="0.8">Çok Dar</option>
-                                <option value="1">Dar</option>
+                                <option value="0.8">Çok Dar (0.8)</option>
+                                <option value="1">Dar (1.0)</option>
                                 <option value="normal">Normal</option>
-                                <option value="1.5">Geniş</option>
+                                <option value="1.5">Geniş (1.5)</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="font-bold text-slate-500 block mb-1">Sayfa Numarası</label>
+                              <select
+                                value={localForm.layout?.showPageNumbers !== false ? 'true' : 'false'}
+                                disabled={!canEditForm}
+                                onChange={(e) => updateForm({ layout: { ...(localForm.layout || {}), showPageNumbers: e.target.value === 'true' } })}
+                                className="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-semibold text-slate-800"
+                              >
+                                <option value="true">Göster</option>
+                                <option value="false">Gizle</option>
                               </select>
                             </div>
                           </div>
-                          <RichTextEditor 
-                            value={localForm.headerTop}
-                            disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                            onChange={(val) => updateForm({ headerTop: val })}
-                            placeholder="Başlık metnini girin..."
-                          />
+                          <p className="text-[10px] text-slate-400 leading-tight">
+                            * Genel yazı tipi ve kenar boşluğu varsayılanları Genel Ayarlar sayfasından yönetilir.
+                          </p>
                         </div>
-
-                        <div className="pt-2">
-                          <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Tarih / Karar No Görünümü (Belge Üzerindeki)</label>
-                          <DebouncedInput 
-                            className="w-full text-sm border border-slate-200 rounded-lg p-2 outline-none bg-slate-50 text-slate-500 cursor-not-allowed" 
-                            value={localForm.headerLine4}
-                            disabled={true}
-                            onChange={(val) => updateForm({ headerLine4: val, title: val })}
-                            placeholder="Otomatik oluşturulur..."
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Items Section */}
-                <div id="items" className={`bg-white p-5 rounded border border-slate-300 shadow-sm space-y-4 scroll-mt-20 transition-opacity ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase">Gündem Maddeleri</h3>
-                    <div className="flex gap-2">
-                      <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        onChange={importWord} 
-                        accept=".docx" 
-                        className="hidden" 
-                      />
-                      <button 
-                        disabled={!canEditForm}
-                        onClick={() => fileInputRef.current?.click()} 
-                        className="flex items-center gap-1 text-xs font-bold uppercase bg-blue-50 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 border border-blue-200 disabled:opacity-50"
-                        title="Word (.docx) dosyasından gündem maddelerini içe aktar"
-                      >
-                        <FileUp className="w-3 h-3" /> Word'den Aktar
-                      </button>
-                      <button 
-                        disabled={!canEditForm || !localForm.items?.length}
-                        onClick={() => setIsReorderModalOpen(true)} 
-                        className="flex items-center gap-1 text-xs font-bold uppercase bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-300 px-3 py-1.5 rounded disabled:opacity-50 transition-colors"
-                        title="Maddeleri tek ekranda sürükle-bırak ile hızlıca sırala"
-                      >
-                        <ArrowUpDown className="w-3 h-3" /> Hızlı Sırala
-                      </button>
-                      <button 
-                        disabled={!canEditForm}
-                        onClick={() => addItem('numbered')} 
-                        className="flex items-center gap-1 text-xs font-bold uppercase bg-slate-100 text-slate-700 px-3 py-1.5 rounded hover:bg-slate-200 border border-slate-300 disabled:opacity-50"
-                      >
-                        <ListOrdered className="w-3 h-3" /> Numaralı
-                      </button>
-                      <button 
-                        disabled={!canEditForm}
-                        onClick={() => addItem('bullet')} 
-                        className="flex items-center gap-1 text-xs font-bold uppercase bg-slate-100 text-slate-700 px-3 py-1.5 rounded hover:bg-slate-200 border border-slate-300 disabled:opacity-50"
-                      >
-                        <Minus className="w-3 h-3" /> Çizgili
-                      </button>
+                      )}
                     </div>
-                  </div>
-
-                  <div className="space-y-2.5 mt-3">
-                    <AnimatePresence>
-                      {localForm.items?.map((item, index) => {
-                        const renderEditorItem = (itm: FormItem, idx: number, isSub: boolean = false, parentId: string | null = null, pIdx: number = 0) => {
-                          const maxLen = isSub && parentId 
-                            ? (localForm.items?.find(i => i.id === parentId)?.subItems?.length || 1) 
-                            : (localForm.items?.length || 1);
-
-                          return (
-                            <React.Fragment key={itm.id}>
-                              {!isSub && (
-                                <div className="relative h-2 group/add -my-1">
-                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/add:opacity-100 transition-opacity z-10">
-                                    <div className="h-px bg-blue-400 w-full"></div>
-                                    <button 
-                                      disabled={!canEditForm}
-                                      onClick={() => isSub && parentId ? addSubItemAt(parentId, idx) : addItemAt(idx)}
-                                      className="absolute bg-blue-600 hover:bg-blue-700 text-white p-0.5 rounded-full shadow-md hover:scale-105 transition-all flex items-center gap-1 px-2 text-[10px] font-bold uppercase"
-                                      title="Araya Madde Ekle"
-                                    >
-                                      <Plus className="w-2.5 h-2.5" />
-                                      <span>Araya Ekle</span>
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                              <motion.div 
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.98 }}
-                                transition={{ duration: 0.15 }}
-                                className="relative group border border-slate-200 hover:border-blue-300 p-2.5 md:p-3 rounded-lg bg-slate-50/70 hover:bg-white transition-all shadow-2xs"
-                              >
-                                <div className="absolute right-2 top-2 opacity-90 md:opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-opacity z-10">
-                                  {!isSub && (
-                                    <button 
-                                      disabled={!canEditForm}
-                                      onClick={() => {
-                                        let newSubItems = [...(itm.subItems || [])];
-                                        newSubItems.push({ id: uuidv4(), type: 'bullet', text: '' });
-                                        updateItem(itm.id, { subItems: newSubItems });
-                                      }} 
-                                      className="bg-white border border-slate-200 hover:border-green-300 text-green-700 hover:bg-green-50 px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 shadow-2xs disabled:opacity-50" 
-                                      title="Alt Madde Ekle"
-                                    >
-                                      <Plus className="w-3 h-3" /> Alt Madde
-                                    </button>
-                                  )}
-                                  {!itm.hasTable && !isSub && (
-                                    <button 
-                                      disabled={!canEditForm}
-                                      onClick={() => addTableToItem(itm.id)} 
-                                      className="bg-white border border-slate-200 hover:border-blue-300 text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 shadow-2xs disabled:opacity-50" 
-                                      title="Tablo Ekle"
-                                    >
-                                      <TableIcon className="w-3 h-3" /> Tablo
-                                    </button>
-                                  )}
-                                  <button 
-                                    disabled={!canEditForm}
-                                    onClick={() => {
-                                      if (isSub && parentId) {
-                                        const parent = localForm.items?.find(i => i.id === parentId);
-                                        if (parent) {
-                                          const newSub = parent.subItems?.filter(s => s.id !== itm.id);
-                                          updateItem(parentId, { subItems: newSub });
-                                        }
-                                      } else {
-                                        removeItem(itm.id)
-                                      }
-                                    }} 
-                                    className="bg-white border border-slate-200 hover:border-red-300 text-red-600 hover:bg-red-50 p-1 rounded shadow-2xs disabled:opacity-50" 
-                                    title="Maddeyi Sil"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                                <div className="flex gap-2.5 items-start">
-                                  {/* Left: Number and Quick Move Controls */}
-                                  <div className="flex flex-col items-center shrink-0 w-10 pt-1">
-                                    <button
-                                      type="button"
-                                      disabled={idx === 0 || !canEditForm}
-                                      onClick={() => moveItem(itm.id, idx - 1, parentId)}
-                                      className="p-0.5 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
-                                      title="Yukarı Taşı"
-                                    >
-                                      <ChevronUp className="w-3.5 h-3.5" />
-                                    </button>
-                                    <input 
-                                      type="number"
-                                      defaultValue={idx + 1}
-                                      key={`itm-pos-${itm.id}-${idx}`}
-                                      min={1}
-                                      max={maxLen}
-                                      disabled={!canEditForm}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          const val = parseInt((e.target as HTMLInputElement).value, 10);
-                                          if (!isNaN(val) && val >= 1 && val <= maxLen && val !== idx + 1) {
-                                            moveItem(itm.id, val - 1, parentId);
-                                          }
-                                        }
-                                      }}
-                                      onBlur={(e) => {
-                                        const val = parseInt(e.target.value, 10);
-                                        if (!isNaN(val) && val >= 1 && val <= maxLen && val !== idx + 1) {
-                                          moveItem(itm.id, val - 1, parentId);
-                                        } else {
-                                          e.target.value = (idx + 1).toString();
-                                        }
-                                      }}
-                                      className="w-10 text-center text-xs font-bold bg-white border border-slate-200 rounded py-0.5 outline-none focus:ring-1 focus:ring-blue-400 shadow-2xs"
-                                      title="Sıralamayı değiştir (Enter ile onayla)"
-                                    />
-                                    <button
-                                      type="button"
-                                      disabled={idx === maxLen - 1 || !canEditForm}
-                                      onClick={() => moveItem(itm.id, idx + 1, parentId)}
-                                      className="p-0.5 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
-                                      title="Aşağı Taşı"
-                                    >
-                                      <ChevronDown className="w-3.5 h-3.5" />
-                                    </button>
-                                    <span className="text-[9px] uppercase tracking-wider text-slate-400 font-medium mt-0.5">
-                                      {itm.type === 'numbered' ? (isSub ? 'Alt' : 'Madde') : '-'}
-                                    </span>
-                                  </div>
-
-                                  <div className="flex-1 space-y-2 min-w-0">
-                                    <div className="flex flex-col sm:flex-row gap-2 items-start">
-                                      <div className="flex-1 w-full min-w-0">
-                                        <RichTextEditor 
-                                          value={itm.text}
-                                          disabled={!canEditForm}
-                                          onChange={(val) => {
-                                            if (isSub && parentId) {
-                                              const parentItem = localForm.items?.find(i => i.id === parentId);
-                                              if (parentItem && parentItem.subItems) {
-                                                const newSub = parentItem.subItems.map(s => s.id === itm.id ? { ...s, text: val } : s);
-                                                updateItem(parentId, { subItems: newSub });
-                                              }
-                                            } else {
-                                              updateItem(itm.id, { text: val });
-                                            }
-                                          }}
-                                          placeholder="Maddenin metnini girin..."
-                                        />
-                                      </div>
-                                      <div className="w-full sm:w-44 shrink-0 flex gap-1.5 self-start">
-                                        <div className="flex-1">
-                                          <input 
-                                            type="text"
-                                            value={itm.age || ''}
-                                            placeholder="Yaş"
-                                            disabled={!canEditForm}
-                                            onChange={(e) => {
-                                              if (isSub && parentId) {
-                                                const parentItem = localForm.items?.find(i => i.id === parentId);
-                                                if (parentItem && parentItem.subItems) {
-                                                  const newSub = parentItem.subItems.map(s => s.id === itm.id ? { ...s, age: e.target.value } : s);
-                                                  updateItem(parentId, { subItems: newSub });
-                                                }
-                                              } else {
-                                                updateItem(itm.id, { age: e.target.value });
-                                              }
-                                            }}
-                                            className="w-full text-xs border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-blue-500 outline-none bg-white"
-                                          />
-                                        </div>
-                                        <div className="flex-1">
-                                          <select
-                                            value={itm.gender || ''}
-                                            disabled={!canEditForm}
-                                            onChange={(e) => {
-                                              const gender = e.target.value as 'male' | 'female' | '';
-                                              if (isSub && parentId) {
-                                                const parentItem = localForm.items?.find(i => i.id === parentId);
-                                                if (parentItem && parentItem.subItems) {
-                                                  const newSub = parentItem.subItems.map(s => s.id === itm.id ? { ...s, gender: gender || undefined } : s);
-                                                  updateItem(parentId, { subItems: newSub });
-                                                }
-                                              } else {
-                                                updateItem(itm.id, { gender: gender || undefined });
-                                              }
-                                            }}
-                                            className="w-full text-xs border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-blue-500 outline-none bg-white h-[31px]"
-                                          >
-                                            <option value="">Cinsiyet</option>
-                                            <option value="female">KADIN</option>
-                                            <option value="male">ERKEK</option>
-                                          </select>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Table Editor */}
-                                    {itm.hasTable && itm.table && !isSub && (
-                                      <div className="bg-white p-4 rounded border border-slate-200 shadow-sm overflow-hidden">
-                                        <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
-                                          <div className="flex flex-wrap items-center gap-3">
-                                            <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
-                                              <TableIcon className="w-4 h-4" /> Tablo Düzenleyici
-                                            </h4>
-
-                                            {/* Muhtaçlık Değerlendirmesi Seçimlik Anahtarı */}
-                                            <label 
-                                              className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                                                isTableMuhtaclikActive(itm.table) 
-                                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-xs' 
-                                                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                                              } ${isSaving || (localForm.isLocked && !localForm.isPostponed) ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
-                                              title="Bu madde için kişi başı aylık gelire göre muhtaçlık değerlendirmesi, artan sıralama ve koyu punto stilini açar/kapatır"
-                                            >
-                                              <input
-                                                type="checkbox"
-                                                checked={isTableMuhtaclikActive(itm.table)}
-                                                disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                onChange={(e) => {
-                                                  const active = e.target.checked;
-                                                  const currentTable = itm.table!;
-                                                  if (active) {
-                                                    const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
-                                                    const targetCol = currentTable.incomeColumnIndex !== undefined && currentTable.incomeColumnIndex >= 0
-                                                      ? currentTable.incomeColumnIndex
-                                                      : findIncomeColumnIndex(currentTable.columns, currentTable.rows);
-
-                                                    if (targetCol >= 0) {
-                                                      const result = sortAndProcessTableByIncome(currentTable.columns, currentTable.rows, muhtaclikLimit, targetCol);
-                                                      updateItem(itm.id, {
-                                                        table: {
-                                                          ...currentTable,
-                                                          columns: result.columns,
-                                                          rows: result.rows,
-                                                          enableMuhtaclikCheck: true,
-                                                          incomeColumnIndex: targetCol
-                                                        }
-                                                      });
-                                                      toast.success(`Muhtaçlık kontrolü aktif edildi (${currentTable.columns[targetCol] || `Sütun ${targetCol + 1}`} sütununa göre).`);
-                                                    } else {
-                                                      // Belirgin gelir sütunu bulunamadı; değerlerin silinmemesi için satırlara dokunmadan boş (-1) olarak aç
-                                                      updateItem(itm.id, {
-                                                        table: {
-                                                          ...currentTable,
-                                                          enableMuhtaclikCheck: true,
-                                                          incomeColumnIndex: -1
-                                                        }
-                                                      });
-                                                      toast.info('Muhtaçlık kontrolü açıldı. Lütfen hesaplama yapılacak sütunu seçiniz.');
-                                                    }
-                                                  } else {
-                                                    updateItem(itm.id, {
-                                                      table: {
-                                                        ...currentTable,
-                                                        enableMuhtaclikCheck: false
-                                                      }
-                                                    });
-                                                    toast.info('Bu madde için muhtaçlık değerlendirmesi kapatıldı.');
-                                                  }
-                                                }}
-                                                className="w-3.5 h-3.5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
-                                              />
-                                              <span className="text-xs font-bold select-none flex items-center gap-1.5">
-                                                <Scale className="w-3.5 h-3.5 text-emerald-600" />
-                                                Muhtaçlık Değerlendirmesi
-                                              </span>
-                                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                                isTableMuhtaclikActive(itm.table) 
-                                                  ? 'bg-emerald-200/80 text-emerald-800' 
-                                                  : 'bg-slate-200 text-slate-600'
-                                              }`}>
-                                                {isTableMuhtaclikActive(itm.table) ? 'Aktif' : 'Kapalı'}
-                                              </span>
-                                            </label>
-
-                                            {/* Sütun Seçimi Dropdown */}
-                                            {isTableMuhtaclikActive(itm.table) && (
-                                              <div className="flex items-center gap-1.5 bg-emerald-50/80 border border-emerald-200 px-2.5 py-1 rounded-lg">
-                                                <span className="text-[11px] font-bold text-emerald-900 uppercase whitespace-nowrap flex items-center gap-1">
-                                                  <Sparkles className="w-3 h-3 text-emerald-600" />
-                                                  Kontrol Sütunu:
-                                                </span>
-                                                <select
-                                                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                  value={
-                                                    itm.table.incomeColumnIndex !== undefined && itm.table.incomeColumnIndex >= 0 && itm.table.incomeColumnIndex < itm.table.columns.length
-                                                      ? itm.table.incomeColumnIndex
-                                                      : -1
-                                                  }
-                                                  onChange={(e) => {
-                                                    const newColIdx = Number(e.target.value);
-                                                    const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
-                                                    const currentTable = itm.table!;
-                                                    if (newColIdx >= 0) {
-                                                      const result = sortAndProcessTableByIncome(currentTable.columns, currentTable.rows, muhtaclikLimit, newColIdx);
-                                                      updateItem(itm.id, {
-                                                        table: {
-                                                          ...currentTable,
-                                                          columns: result.columns,
-                                                          rows: result.rows,
-                                                          incomeColumnIndex: newColIdx
-                                                        }
-                                                      });
-                                                      toast.success(`Muhtaçlık kontrol sütunu: Sütun ${newColIdx + 1} (${currentTable.columns[newColIdx] || 'İsimsiz'})`);
-                                                    } else {
-                                                      updateItem(itm.id, {
-                                                        table: {
-                                                          ...currentTable,
-                                                          incomeColumnIndex: -1
-                                                        }
-                                                      });
-                                                    }
-                                                  }}
-                                                  className={`text-xs font-bold rounded px-2 py-0.5 outline-none focus:ring-1 cursor-pointer ${
-                                                    itm.table.incomeColumnIndex !== undefined && itm.table.incomeColumnIndex >= 0
-                                                      ? 'text-slate-800 bg-white border border-emerald-300 focus:ring-emerald-500'
-                                                      : 'text-amber-800 bg-amber-50 border border-amber-300 focus:ring-amber-500'
-                                                  }`}
-                                                >
-                                                  <option value={-1}>-- Sütun Seçiniz --</option>
-                                                  {itm.table.columns.map((col, cIdx) => (
-                                                    <option key={cIdx} value={cIdx}>
-                                                      Sütun {cIdx + 1}: {col || '(İsimsiz)'}
-                                                    </option>
-                                                  ))}
-                                                </select>
-                                              </div>
-                                            )}
-                                          </div>
-
-                                          <div className="flex flex-wrap gap-4 items-center">
-                                            <label className={`text-xs font-bold text-green-600 uppercase cursor-pointer hover:underline flex items-center gap-1 ${isSaving || (localForm.isLocked && !localForm.isPostponed) ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}>
-                                              <FileUp className="w-3.5 h-3.5" /> Excel Yükle
-                                              <input 
-                                                type="file" 
-                                                accept=".xlsx,.xls,.csv" 
-                                                className="hidden" 
-                                                disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                onChange={(e) => importExcelToTable(itm.id, e)}
-                                              />
-                                            </label>
-                                            <button 
-                                              onClick={() => exportExcelFromTable(itm.table!, idx)} 
-                                              className="text-xs font-bold text-blue-600 uppercase hover:underline flex items-center gap-1"
-                                            >
-                                              <FileDown className="w-3.5 h-3.5" /> Excel İndir
-                                            </button>
-                                            {isTableMuhtaclikActive(itm.table) && (
-                                              <button 
-                                                type="button"
-                                                disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                                                onClick={() => {
-                                                  const targetCol = itm.table!.incomeColumnIndex !== undefined && itm.table!.incomeColumnIndex >= 0
-                                                    ? itm.table!.incomeColumnIndex
-                                                    : -1;
-                                                  if (targetCol < 0) {
-                                                    toast.warning('Lütfen önce hesaplama yapılacak kontrol sütununu seçiniz.');
-                                                    return;
-                                                  }
-                                                  const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
-                                                  const result = sortAndProcessTableByIncome(itm.table!.columns, itm.table!.rows, muhtaclikLimit, targetCol);
-                                                  updateItem(itm.id, { 
-                                                    table: { 
-                                                      ...itm.table!, 
-                                                      columns: result.columns, 
-                                                      rows: result.rows,
-                                                      incomeColumnIndex: result.incomeColIdx
-                                                    } 
-                                                  });
-                                                  toast.success('Tablo seçilen sütuna göre artan sırada ve muhtaçlık kriterine göre düzenlendi.');
-                                                }}
-                                                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 uppercase flex items-center gap-1 hover:underline disabled:opacity-50"
-                                                title="Tabloyu seçilen kontrol sütununa göre artan sırada dizer ve muhtaçlık sınırını aşanları en alta taşır"
-                                              >
-                                                <ArrowUpDown className="w-3.5 h-3.5" /> Gelire Göre Sırala
-                                              </button>
-                                            )}
-                                            <button disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)} onClick={() => removeTableFromItem(itm.id)} className="text-xs font-bold text-red-600 uppercase hover:underline disabled:opacity-50">Tabloyu Kaldır</button>
-                                          </div>
-                                        </div>
-                                        
-                                        <div className="overflow-x-auto pb-4">
-                                          <div className="flex flex-col gap-2 w-full">
-                                            {/* Columns Header */}
-                                            <div className="flex gap-2 items-center w-full">
-                                              <div className="w-8 shrink-0 text-center text-xs font-bold text-slate-400">#</div>
-                                              {itm.table.columns.map((col, cI) => {
-                                                const isIncomeCol = isTableMuhtaclikActive(itm.table) && 
-                                                  itm.table?.incomeColumnIndex !== undefined && 
-                                                  itm.table.incomeColumnIndex >= 0 && 
-                                                  itm.table.incomeColumnIndex === cI;
-                                                return (
-                                                  <div key={cI} className={`relative group/col ${isSiraColumn(col) ? 'w-14 shrink-0' : 'flex-1 min-w-[70px]'}`}>
-                                                    <input 
-                                                      disabled={!canEditForm}
-                                                      className={`w-full ${isIncomeCol ? 'pr-7' : 'pr-2'} text-xs font-bold uppercase border rounded p-1.5 focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50 ${
-                                                        isIncomeCol 
-                                                          ? 'border-emerald-500 bg-emerald-50/40 text-emerald-950 ring-1 ring-emerald-400' 
-                                                          : 'border-slate-300 bg-slate-50'
-                                                      }`} 
-                                                      value={col}
-                                                      placeholder={`Sütun ${cI + 1}`}
-                                                      onChange={(e) => {
-                                                        const newCols = [...itm.table!.columns];
-                                                        newCols[cI] = e.target.value;
-                                                        updateItem(itm.id, { table: { ...itm.table!, columns: newCols } });
-                                                      }}
-                                                    />
-                                                    {isIncomeCol && (
-                                                      <span className="absolute right-6 top-2 text-[8px] font-black tracking-wider text-emerald-700 bg-emerald-100/90 px-1 rounded pointer-events-none uppercase">
-                                                        GELİR
-                                                      </span>
-                                                    )}
-                                                    {itm.table!.columns.length > 1 && (
-                                                      <button 
-                                                        disabled={!canEditForm}
-                                                        onClick={() => {
-                                                          const currentTable = itm.table!;
-                                                          const newCols = currentTable.columns.filter((_, i) => i !== cI);
-                                                          const newRows = currentTable.rows.map(r => r.filter((_, i) => i !== cI));
-                                                          let newIncomeCol = currentTable.incomeColumnIndex;
-                                                          if (newIncomeCol !== undefined && newIncomeCol >= 0) {
-                                                            if (newIncomeCol === cI) newIncomeCol = -1;
-                                                            else if (newIncomeCol > cI) newIncomeCol = newIncomeCol - 1;
-                                                          }
-                                                          updateItem(itm.id, { table: { ...currentTable, columns: newCols, rows: newRows, incomeColumnIndex: newIncomeCol } });
-                                                        }}
-                                                        className="absolute right-1 top-[4px] p-1 text-red-500 hover:bg-red-50 rounded opacity-0 group-hover/col:opacity-100 transition-opacity disabled:opacity-0"
-                                                        title="Sütunu Sil"
-                                                      >
-                                                        <Trash2 className="w-3 h-3" />
-                                                      </button>
-                                                    )}
-                                                  </div>
-                                                );
-                                              })}
-                                              <div className="flex items-center gap-2 shrink-0">
-                                                <button 
-                                                  type="button"
-                                                  disabled={!canEditForm}
-                                                  onClick={() => {
-                                                    const newCols = [...itm.table!.columns, `Yeni Sütun`];
-                                                    const newRows = itm.table!.rows.map(r => [...r, '']);
-                                                    updateItem(itm.id, { table: { ...itm.table!, columns: newCols, rows: newRows } });
-                                                  }}
-                                                  className="shrink-0 px-2.5 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg text-slate-700 whitespace-nowrap disabled:opacity-50 transition-all"
-                                                  title="Tabloya yeni sütun ekler"
-                                                >
-                                                  + SÜTUN
-                                                </button>
-
-                                                <button 
-                                                  type="button"
-                                                  disabled={!canEditForm}
-                                                  onClick={() => {
-                                                    const newRow = Array(itm.table!.columns.length).fill('');
-                                                    const newRows = [newRow, ...itm.table!.rows.map(r => [...r])];
-                                                    const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
-                                                    if (siraIdx >= 0) {
-                                                      newRows.forEach((r, idx) => {
-                                                        r[siraIdx] = (idx + 1).toString();
-                                                      });
-                                                    }
-                                                    updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
-                                                    setTimeout(() => {
-                                                      const targetColIdx = itm.table!.columns.findIndex(c => !isSiraColumn(c));
-                                                      const colToFocus = targetColIdx >= 0 ? targetColIdx : 0;
-                                                      const input = document.querySelector<HTMLInputElement>(`input[data-table-cell="${itm.id}-0-${colToFocus}"]`);
-                                                      if (input) {
-                                                        input.focus();
-                                                        input.select();
-                                                      }
-                                                    }, 50);
-                                                  }}
-                                                  className="shrink-0 px-2.5 py-1.5 text-xs font-bold bg-blue-50/90 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg whitespace-nowrap transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1 shadow-2xs"
-                                                  title="Tablonun en başına yeni bir satır ekler"
-                                                >
-                                                  <Plus className="w-3.5 h-3.5" />
-                                                  <span>+ Başa Satır Ekle</span>
-                                                </button>
-                                              </div>
-                                            </div>
-                                            
-                                             {/* Rows */}
-                                             {itm.table.rows.map((row, rI) => {
-                                               const isMuhtaclik = isTableMuhtaclikActive(itm.table);
-                                               const targetIncomeCol = itm.table?.incomeColumnIndex !== undefined && itm.table.incomeColumnIndex >= 0
-                                                 ? itm.table.incomeColumnIndex
-                                                 : -1;
-                                               const isOver = isMuhtaclik && targetIncomeCol >= 0 && isOverLimitRow(row);
-                                               const isStringRow = isMuhtaclik && targetIncomeCol >= 0 && !isOver && isStringIncomeRow(row, targetIncomeCol);
-                                               const isHighlight = isOver || isStringRow;
-                                               return (
-                                                 <div key={rI} className={`flex gap-2 items-center group/row p-1 rounded-lg transition-colors w-full ${isHighlight ? 'bg-slate-100/90 border border-slate-300' : ''}`}>
-                                                   <div className={`w-8 shrink-0 text-center text-xs font-bold ${isHighlight ? 'text-slate-800' : 'text-slate-400'}`}>{rI + 1}</div>
-                                                   {row.map((cell, cI) => {
-                                                     const isSira = isSiraColumn(itm.table!.columns[cI]);
-                                                     const isCellLimitOver = isMuhtaclik && isOverLimitRow([cell]);
-                                                     return (
-                                                       <input 
-                                                         key={cI}
-                                                         data-table-cell={`${itm.id}-${rI}-${cI}`}
-                                                         readOnly={isSira || !canEditForm}
-                                                         className={`${isSira ? 'w-14 shrink-0' : 'flex-1 min-w-[70px]'} text-xs sm:text-sm border rounded-lg p-1.5 sm:p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all ${
-                                                           isSira ? 'bg-slate-100 text-center text-slate-600 font-bold border-slate-200' : ''
-                                                         } ${
-                                                           isHighlight ? 'font-bold border-slate-300 bg-white' : 'border-slate-200 bg-white hover:border-slate-300'
-                                                         } ${
-                                                           isCellLimitOver ? 'text-red-700 font-black bg-red-50/70 border-red-300' : ''
-                                                         } disabled:opacity-50`}
-                                                         value={isSira ? (rI + 1).toString() : cell}
-                                                         onFocus={(e) => {
-                                                           if (isCellLimitOver) {
-                                                             e.target.select();
-                                                           }
-                                                         }}
-                                                         onChange={(e) => {
-                                                           if (isSira) return;
-                                                           const newRows = [...itm.table!.rows];
-                                                           newRows[rI] = [...newRows[rI]];
-                                                           newRows[rI][cI] = e.target.value;
-                                                           updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
-                                                         }}
-                                                         onBlur={(e) => {
-                                                           if (!isSira) {
-                                                             handleCellBlurOrSubmit(itm.id, itm.table!, rI, cI, e.target.value);
-                                                           }
-                                                         }}
-                                                         onKeyDown={(e) => {
-                                                           if (e.key === 'Enter') {
-                                                             e.preventDefault();
-                                                             handleCellBlurOrSubmit(itm.id, itm.table!, rI, cI, e.currentTarget.value);
-                                                             
-                                                             // Enter ile aynı sütunda bir alt satıra geçiş, son satırda ise otomatik yeni satır oluşturma
-                                                             if (rI < itm.table!.rows.length - 1) {
-                                                               const nextInput = document.querySelector<HTMLInputElement>(`input[data-table-cell="${itm.id}-${rI + 1}-${cI}"]`);
-                                                               if (nextInput) {
-                                                                 nextInput.focus();
-                                                                 nextInput.select();
-                                                               }
-                                                             } else if (canEditForm) {
-                                                               const newRow = Array(itm.table!.columns.length).fill('');
-                                                               const newRows = [...itm.table!.rows.map(r => [...r]), newRow];
-                                                               const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
-                                                               if (siraIdx >= 0) {
-                                                                 newRows.forEach((r, idx) => {
-                                                                   r[siraIdx] = (idx + 1).toString();
-                                                                 });
-                                                               }
-                                                               updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
-                                                               setTimeout(() => {
-                                                                 const nextInput = document.querySelector<HTMLInputElement>(`input[data-table-cell="${itm.id}-${rI + 1}-${cI}"]`);
-                                                                 if (nextInput) {
-                                                                   nextInput.focus();
-                                                                   nextInput.select();
-                                                                 }
-                                                               }, 50);
-                                                             }
-                                                           }
-                                                         }}
-                                                       />
-                                                     );
-                                                   })}
-                                                   {isOver && (
-                                                     <span className="shrink-0 px-2 py-1 text-[9px] font-black uppercase tracking-wider bg-slate-800 text-white rounded shadow-xs whitespace-nowrap">
-                                                       RED (SINIR ÜSTÜ)
-                                                     </span>
-                                                   )}
-                                                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity">
-                                                      <button 
-                                                        type="button"
-                                                        disabled={!canEditForm}
-                                                        onClick={() => {
-                                                          const newRow = Array(itm.table!.columns.length).fill('');
-                                                          const newRows = itm.table!.rows.map(r => [...r]);
-                                                          newRows.splice(rI, 0, newRow);
-                                                          const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
-                                                          if (siraIdx >= 0) {
-                                                            newRows.forEach((r, idx) => {
-                                                              r[siraIdx] = (idx + 1).toString();
-                                                            });
-                                                          }
-                                                          updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
-                                                          setTimeout(() => {
-                                                            const targetColIdx = itm.table!.columns.findIndex(c => !isSiraColumn(c));
-                                                            const colToFocus = targetColIdx >= 0 ? targetColIdx : 0;
-                                                            const input = document.querySelector<HTMLInputElement>(`input[data-table-cell="${itm.id}-${rI}-${colToFocus}"]`);
-                                                            if (input) {
-                                                              input.focus();
-                                                              input.select();
-                                                            }
-                                                          }, 50);
-                                                        }}
-                                                        className="px-1.5 py-1 text-[11px] font-bold text-slate-600 hover:text-blue-700 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-lg shadow-2xs transition-all active:scale-95 disabled:opacity-0 flex items-center gap-0.5"
-                                                        title="Bu satırın hemen üstüne yeni satır ekle"
-                                                      >
-                                                        <ArrowUp className="w-3 h-3 text-blue-600" />
-                                                        <span className="hidden sm:inline">Üste</span>
-                                                      </button>
-
-                                                      <button 
-                                                        type="button"
-                                                        disabled={!canEditForm}
-                                                        onClick={() => {
-                                                          const newRow = Array(itm.table!.columns.length).fill('');
-                                                          const newRows = itm.table!.rows.map(r => [...r]);
-                                                          newRows.splice(rI + 1, 0, newRow);
-                                                          const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
-                                                          if (siraIdx >= 0) {
-                                                            newRows.forEach((r, idx) => {
-                                                              r[siraIdx] = (idx + 1).toString();
-                                                            });
-                                                          }
-                                                          updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
-                                                          setTimeout(() => {
-                                                            const targetColIdx = itm.table!.columns.findIndex(c => !isSiraColumn(c));
-                                                            const colToFocus = targetColIdx >= 0 ? targetColIdx : 0;
-                                                            const input = document.querySelector<HTMLInputElement>(`input[data-table-cell="${itm.id}-${rI + 1}-${colToFocus}"]`);
-                                                            if (input) {
-                                                              input.focus();
-                                                              input.select();
-                                                            }
-                                                          }, 50);
-                                                        }}
-                                                        className="px-1.5 py-1 text-[11px] font-bold text-slate-600 hover:text-blue-700 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-lg shadow-2xs transition-all active:scale-95 disabled:opacity-0 flex items-center gap-0.5"
-                                                        title="Bu satırın hemen altına yeni satır ekle"
-                                                      >
-                                                        <ArrowDown className="w-3 h-3 text-blue-600" />
-                                                        <span className="hidden sm:inline">Alta</span>
-                                                      </button>
-
-                                                      <button 
-                                                        type="button"
-                                                        disabled={!canEditForm}
-                                                        onClick={() => {
-                                                          const newRows = itm.table!.rows.filter((_, i) => i !== rI).map(r => [...r]);
-                                                          const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
-                                                          if (siraIdx >= 0) {
-                                                            newRows.forEach((r, idx) => {
-                                                              r[siraIdx] = (idx + 1).toString();
-                                                            });
-                                                          }
-                                                          updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
-                                                        }}
-                                                        className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 rounded-lg text-xs font-bold text-center transition-all disabled:opacity-0"
-                                                        title="Satırı Sil"
-                                                      >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                      </button>
-                                                    </div>
-                                                 </div>
-                                               );
-                                             })}
-                                            <div className="flex gap-2 items-center mt-2">
-                                              <div className="w-8 shrink-0"></div>
-                                              <button 
-                                                disabled={!canEditForm}
-                                                onClick={() => {
-                                                  const newRow = Array(itm.table!.columns.length).fill('');
-                                                  const newRows = [...itm.table!.rows.map(r => [...r]), newRow];
-                                                  const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
-                                                  if (siraIdx >= 0) {
-                                                    newRows.forEach((r, idx) => {
-                                                      r[siraIdx] = (idx + 1).toString();
-                                                    });
-                                                  }
-                                                  updateItem(itm.id, { table: { ...itm.table!, rows: newRows } });
-                                                  setTimeout(() => {
-                                                    const targetColIdx = itm.table!.columns.findIndex(c => !isSiraColumn(c));
-                                                    const colToFocus = targetColIdx >= 0 ? targetColIdx : 0;
-                                                    const input = document.querySelector<HTMLInputElement>(`input[data-table-cell="${itm.id}-${newRows.length - 1}-${colToFocus}"]`);
-                                                    if (input) {
-                                                      input.focus();
-                                                      input.select();
-                                                    }
-                                                  }, 50);
-                                                }}
-                                                className="text-xs font-bold bg-blue-50/90 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg py-1.5 px-3.5 shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
-                                              >
-                                                <span>+ Satır Ekle</span>
-                                                <span className="text-[10px] font-normal text-blue-500 hidden sm:inline">(veya son satırda Enter)</span>
-                                              </button>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {itm.subItems && itm.subItems.length > 0 && !isSub && (
-                                      <div className="ml-5 mt-2 space-y-2 border-l-2 border-slate-200 pl-3">
-                                        {itm.subItems.map((sItem, sIdx) => renderEditorItem(sItem as any, sIdx, true, itm.id, idx))}
-                                        <div className="flex justify-start pt-1">
-                                          <button 
-                                            disabled={!canEditForm}
-                                            onClick={() => {
-                                              let newSubItems = [...(itm.subItems || [])];
-                                              newSubItems.push({ id: uuidv4(), type: 'bullet', text: '' });
-                                              updateItem(itm.id, { subItems: newSubItems });
-                                            }}
-                                            className="flex items-center gap-1 text-[10px] font-bold text-green-700 hover:text-green-800 bg-green-50 hover:bg-green-100 px-2.5 py-1 rounded transition-colors border border-green-200 disabled:opacity-50"
-                                          >
-                                            <Plus className="w-3 h-3" />
-                                            <span>ALT MADDE EKLE</span>
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </motion.div>
-                            </React.Fragment>
-                          );
-                        };
-                        return renderEditorItem(item, index);
-                      })}
-                    </AnimatePresence>
-
-                    {localForm.items?.length === 0 && (
-                      <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-lg">
-                        Maddeler ekleyerek başlayın.
-                      </div>
-                    )}
-
-                    <div className="mt-8 flex flex-col items-center gap-4 pt-4 border-t border-slate-100">
-                      <div className="flex gap-2">
-                        <button 
-                          disabled={!canEditForm}
-                          onClick={() => {
-                            const newItem: FormItem = { id: uuidv4(), type: 'numbered', text: '' };
-                            updateForm({ items: [newItem, ...(localForm.items || [])] });
-                          }}
-                          className="flex items-center gap-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 px-4 py-2 rounded-lg font-bold text-xs transition-all active:scale-95 border border-slate-200 disabled:opacity-50"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span>BAŞA EKLE</span>
-                        </button>
-                        <button 
-                          disabled={!canEditForm}
-                          onClick={() => addItem('numbered')}
-                          className="flex items-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white px-6 py-2 rounded-lg font-bold transition-all shadow-sm group active:scale-95 border border-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
-                          <span>SONA EKLE</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer Section */}
-                {isAdmin && (
-                <div id="footer" className={`bg-white p-5 rounded border border-slate-300 shadow-sm space-y-4 scroll-mt-20 transition-opacity ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <h3 className="text-xs font-bold text-slate-500 uppercase border-b border-slate-100 pb-2">Karar Notu (Alt Açıklama)</h3>
-                  <RichTextEditor 
-                    value={localForm.footerText}
-                    disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                    onChange={(val) => updateForm({ footerText: val })}
-                    placeholder="Karar metnini buraya girin..."
-                  />
-                </div>
-                )}
-
-                {/* Signatures Section */}
-                {isAdmin && (
-                <div id="signatures" className={`bg-white p-5 rounded border border-slate-300 shadow-sm space-y-4 scroll-mt-20 transition-opacity ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase">İmza Alanı Seçimi</h3>
-                    <div className="flex gap-2">
-                      <button 
-                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                        onClick={() => updateForm({ signatureMembers: allMembers.map(m => m.id) })}
-                        className="text-[10px] font-bold text-blue-600 uppercase hover:bg-blue-50 px-2 py-1 rounded disabled:opacity-50"
-                      >
-                        Tümünü Seç
-                      </button>
-                      <button 
-                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                        onClick={() => updateForm({ signatureMembers: [] })}
-                        className="text-[10px] font-bold text-red-600 uppercase hover:bg-red-50 px-2 py-1 rounded disabled:opacity-50"
-                      >
-                        Tümünü Kaldır
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-500 font-medium">Formda görünecek imzacıları seçin. Sıralama Ayarlar &gt; Üyeler kısmından yönetilir.</p>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {allMembers.map(member => (
-                      <label key={member.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition-all shadow-sm bg-white active:scale-95">
-                        <input 
-                          type="checkbox" 
-                          className="rounded text-blue-700 focus:ring-blue-500 w-4 h-4"
-                          checked={localForm.signatureMembers.includes(member.id)}
-                          disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
-                          onChange={(e) => {
-                            const newSignatures = e.target.checked 
-                              ? [...localForm.signatureMembers, member.id]
-                              : localForm.signatureMembers.filter(id => id !== member.id);
-                            updateForm({ signatureMembers: newSignatures });
-                          }}
-                        />
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 text-xs text-center uppercase leading-tight">{member.name}</span>
-                          <span className="text-[10px] font-bold text-slate-400 text-center uppercase tracking-tighter mt-0.5">{member.title}</span>
-                          {member.isProxy && <span className="text-[9px] font-bold text-orange-600 text-center uppercase mt-0.5">(Vekil: {member.proxyName})</span>}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+                  </>
                 )}
               </div>
-            ) : (
-              <div className="w-full flex-1 overflow-auto preview-container">
-                <div className="flex justify-center mb-4 sticky top-0 z-20">
-                  <div className="bg-white/80 backdrop-blur-sm p-3 rounded-2xl border border-slate-200 shadow-xl flex flex-col gap-3 min-w-[500px]">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Otomatik Sıralama Kontrolleri</span>
-                      <button onClick={() => setSortOrder('none')} className="text-[9px] font-bold text-red-500 hover:underline uppercase">Sıralamayı Sıfırla</button>
+
+              {/* Right Ribbon: Document Block Operations */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={importWord} 
+                  accept=".docx" 
+                  className="hidden" 
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!canEditForm}
+                  className="px-2.5 py-1 text-[11px] font-bold uppercase rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 flex items-center gap-1 transition-all disabled:opacity-50"
+                  title="Word (.docx) Dosyasından Gündem Maddeleri Aktar"
+                >
+                  <FileUp className="w-3.5 h-3.5 text-blue-700" />
+                  <span>Word&apos;den Aktar</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsReorderModalOpen(true)}
+                  disabled={!canEditForm || !localForm.items?.length}
+                  className="px-2.5 py-1 text-[11px] font-bold uppercase rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 flex items-center gap-1 transition-all disabled:opacity-50"
+                  title="Tüm Maddeleri Tek Listede Sürükle-Bırak Sırala"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Toplu Sırala ({localForm.items?.length || 0})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => addItem('numbered')}
+                  disabled={!canEditForm}
+                  className="px-2.5 py-1 text-[11px] font-bold uppercase rounded-lg bg-blue-700 hover:bg-blue-800 text-white flex items-center gap-1 shadow-2xs transition-all disabled:opacity-50"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Yeni Madde</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </header>
+
+        {/* ==================== MAIN WORKSPACE AREA ==================== */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden pb-20 px-1 sm:px-4" id="main-scroll-container">
+          {/* Passive Form Notice for Non-Admins */}
+          {localForm.isActive === false && !isAdmin && (
+            <div className="max-w-[210mm] mx-auto mb-3">
+              <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-center gap-2.5 shadow-2xs">
+                <Lock className="w-4 h-4 text-amber-700 shrink-0" />
+                <p className="text-xs text-amber-900 font-semibold">
+                  Bu karar formu geçmiş tarihli olduğu için pasif durumdadır. Salt-okunur modda görüntülüyorsunuz.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'editor' ? (
+            /* ==================== LIVE WORD A4 CANVAS ==================== */
+            <div className="w-full flex flex-col items-center">
+              <div
+                className="w-full max-w-[210mm] bg-white text-black shadow-xl border border-slate-300 rounded-sm min-h-[297mm] relative flex flex-col transition-all px-3 py-5 sm:px-[12mm] sm:py-[12mm]"
+                style={{
+                  fontFamily: docFontFamily,
+                }}
+              >
+                {/* Watermark Preview on Canvas */}
+                {(activeLayout?.watermarkText || activeLayout?.watermarkText2) && (
+                  <div className="inset-0 absolute pointer-events-none flex justify-center items-center overflow-hidden z-0">
+                    <div
+                      className="font-bold text-center flex flex-col select-none"
+                      style={{
+                        transform: `rotate(${activeLayout?.watermarkAngle ?? -45}deg)`,
+                        fontSize: activeLayout?.watermarkSize ? `${activeLayout?.watermarkSize}px` : '36px',
+                        color: 'black',
+                        opacity: (activeLayout?.watermarkOpacity ?? 5) / 100,
+                        lineHeight: 1.2,
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {activeLayout.watermarkText && <div>{activeLayout.watermarkText}</div>}
+                      {activeLayout.watermarkText2 && <div>{activeLayout.watermarkText2}</div>}
                     </div>
-                    
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1 flex flex-col gap-1.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">1. Cinsiyet Önceliği</span>
-                        <div className="flex bg-slate-100 p-1 rounded-lg">
-                          <button 
-                            onClick={() => setGenderPriority('female')}
-                            className={`flex-1 px-3 py-1.5 text-[10px] font-bold rounded-md transition-all flex items-center justify-center gap-1.5 ${genderPriority === 'female' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                          >
-                            <div className={`w-1.5 h-1.5 rounded-full ${genderPriority === 'female' ? 'bg-pink-500' : 'bg-slate-300'}`}></div>
-                            ÖNCE KADINLAR
-                          </button>
-                          <button 
-                            onClick={() => setGenderPriority('male')}
-                            className={`flex-1 px-3 py-1.5 text-[10px] font-bold rounded-md transition-all flex items-center justify-center gap-1.5 ${genderPriority === 'male' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                          >
-                            <div className={`w-1.5 h-1.5 rounded-full ${genderPriority === 'male' ? 'bg-blue-500' : 'bg-slate-300'}`}></div>
-                            ÖNCE ERKEKLER
-                          </button>
+                  </div>
+                )}
+
+                <div className="relative z-10 flex flex-col flex-1">
+                  {/* 1. DOCUMENT HEADER (LOGOS & INSTITUTION TITLE) */}
+                  <div className="flex items-start justify-between gap-2 sm:gap-4 mb-6 text-center font-bold group/docheader relative">
+                    {settings?.leftLogoBase64 ? (
+                      <img
+                        src={settings.leftLogoBase64}
+                        alt="Sol Logo"
+                        className="h-14 w-14 sm:h-[24mm] sm:w-[24mm] object-contain shrink-0"
+                        style={{ opacity: (activeLayout?.logoOpacity ?? 100) / 100 }}
+                      />
+                    ) : (
+                      <div className="h-14 w-14 sm:h-[24mm] sm:w-[24mm] shrink-0 hidden sm:block" />
+                    )}
+
+                    <div
+                      className="flex-1 mt-1"
+                      style={{
+                        fontSize: docFontSizeTitle,
+                        lineHeight: localForm.layout?.headerLineSpacing || activeLayout?.headerLineSpacing || 'normal'
+                      }}
+                    >
+                      {isAdmin && canEditForm ? (
+                        <div className="relative">
+                          {isHeaderEditOpen ? (
+                            <div className="bg-slate-50 border border-blue-300 rounded-xl p-2.5 text-left shadow-sm">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[10px] font-bold text-blue-800 uppercase">Kurum Başlığı Düzenle</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsHeaderEditOpen(false)}
+                                  className="text-[10px] font-bold bg-blue-700 text-white px-2 py-0.5 rounded"
+                                >
+                                  Tamam
+                                </button>
+                              </div>
+                              <RichTextEditor
+                                variant="inline"
+                                value={localForm.headerTop}
+                                disabled={!canEditForm}
+                                onEditorFocus={setActiveEditor}
+                                onChange={(val) => updateForm({ headerTop: val })}
+                                placeholder="T.C. ... VALİLİĞİ / KAYMAKAMLIĞI"
+                                className="text-center font-bold"
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() => setIsHeaderEditOpen(true)}
+                              className="cursor-pointer rounded-lg p-1.5 -m-1.5 hover:bg-blue-50/50 hover:ring-1 hover:ring-blue-300 transition-all relative group/htitle"
+                              title="Kurum başlığını düzenlemek için tıklayın"
+                            >
+                              {localForm.headerTop.includes('<') ? (
+                                <div className="rich-text-preview header-rich-text" dangerouslySetInnerHTML={{ __html: localForm.headerTop }} />
+                              ) : (
+                                <div className="whitespace-pre-wrap">{localForm.headerTop}</div>
+                              )}
+                              <span className="opacity-0 group-hover/htitle:opacity-100 absolute -top-2 right-1 bg-blue-700 text-white text-[9px] font-sans font-bold px-1.5 py-0.5 rounded shadow-xs transition-opacity">
+                                Başlığı Düzenle
+                              </span>
+                            </div>
+                          )}
                         </div>
+                      ) : (
+                        localForm.headerTop.includes('<') ? (
+                          <div className="rich-text-preview header-rich-text" dangerouslySetInnerHTML={{ __html: localForm.headerTop }} />
+                        ) : (
+                          <div className="whitespace-pre-wrap">{localForm.headerTop}</div>
+                        )
+                      )}
+                    </div>
+
+                    {settings?.rightLogoBase64 ? (
+                      <img
+                        src={settings.rightLogoBase64}
+                        alt="Sağ Logo"
+                        className="h-14 w-14 sm:h-[24mm] sm:w-[24mm] object-contain shrink-0"
+                        style={{ opacity: (activeLayout?.logoOpacity ?? 100) / 100 }}
+                      />
+                    ) : (
+                      <div className="h-14 w-14 sm:h-[24mm] sm:w-[24mm] shrink-0 hidden sm:block" />
+                    )}
+                  </div>
+
+                  {/* 2. DECISION DATE / NO / POSTPONED BAR (DIRECTLY ON PAPER) */}
+                  <div className="border-b-2 border-black pb-3 mb-5 font-bold text-xs sm:text-[13px] flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                    <div className="space-y-1.5">
+                      {/* KARAR TARİHİ */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="min-w-[105px] inline-block">KARAR TARİHİ</span>
+                        <span>:</span>
+                        {isAdmin && canEditForm && localForm.isPostponed ? (
+                          <input
+                            type="date"
+                            value={localForm.decisionDate || ''}
+                            onChange={(e) => {
+                              const newDate = e.target.value;
+                              const formattedDate = newDate ? new Date(newDate).toLocaleDateString('tr-TR') : '.../.../20...';
+                              const newTitle = `${formattedDate} - Karar No: ${localForm.decisionNo || '...'}`;
+                              updateForm({
+                                decisionDate: newDate,
+                                headerLine4: newTitle,
+                                title: newTitle
+                              });
+                            }}
+                            className="font-sans text-xs font-bold bg-amber-50 border border-amber-300 rounded px-2 py-0.5 text-slate-900 focus:ring-1 focus:ring-blue-600 outline-none"
+                          />
+                        ) : (
+                          <span>
+                            {localForm.decisionDate ? new Date(localForm.decisionDate).toLocaleDateString('tr-TR') : '.../.../20...'}
+                          </span>
+                        )}
+
+                        {isAdmin && canEditForm && localForm.isPostponed && (
+                          <span className="inline-flex items-center gap-1 ml-2 font-sans text-[11px] text-slate-600">
+                            <Clock className="w-3 h-3" />
+                            <input
+                              type="time"
+                              value={localForm.decisionTime || ''}
+                              onChange={(e) => updateForm({ decisionTime: e.target.value })}
+                              className="bg-amber-50 border border-amber-300 rounded px-1.5 py-0.5 text-xs font-bold text-slate-900"
+                            />
+                          </span>
+                        )}
                       </div>
 
-                      <div className="flex-1 flex flex-col gap-1.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">2. Yaş Sıralaması</span>
-                        <div className="flex bg-slate-100 p-1 rounded-lg">
-                          <button 
-                            onClick={() => setSortOrder('asc')}
-                            className={`flex-1 px-3 py-1.5 text-[10px] font-bold rounded-md transition-all ${sortOrder === 'asc' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                      {/* KARAR NO */}
+                      <div className="flex items-center gap-2">
+                        <span className="min-w-[105px] inline-block">KARAR NO</span>
+                        <span>:</span>
+                        {isAdmin && canEditForm && localForm.isPostponed ? (
+                          <DebouncedInput
+                            type="text"
+                            value={localForm.decisionNo || ''}
+                            onChange={(val) => {
+                              const formattedDate = localForm.decisionDate ? new Date(localForm.decisionDate).toLocaleDateString('tr-TR') : '.../.../20...';
+                              const newTitle = `${formattedDate} - Karar No: ${val || '...'}`;
+                              updateForm({
+                                decisionNo: val,
+                                headerLine4: newTitle,
+                                title: newTitle
+                              });
+                            }}
+                            placeholder="2026 / ..."
+                            className="font-sans text-xs font-bold bg-amber-50 border border-amber-300 rounded px-2 py-0.5 text-slate-900 w-36 focus:ring-1 focus:ring-blue-600 outline-none"
+                          />
+                        ) : (
+                          <span>{localForm.decisionNo || '...'}</span>
+                        )}
+                      </div>
+
+                      {localForm.isPostponed && (
+                        <div className="text-red-600 text-[10px] uppercase tracking-widest pt-0.5">
+                          ** TOPLANTI ERTELENMİŞTİR **
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Admin Postpone Toggle right on the paper header */}
+                    {isAdmin && canEditForm && (
+                      <div className="flex items-center gap-2 self-start sm:self-end font-sans">
+                        <label
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold cursor-pointer select-none transition-all ${
+                            localForm.isPostponed
+                              ? 'bg-amber-100 border-amber-400 text-amber-900'
+                              : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200/70'
+                          }`}
+                          title="Tarih ve Karar No alanlarını değiştirebilmek için Toplantı Ertelendi seçeneğini işaretleyin"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={localForm.isPostponed || false}
+                            onChange={(e) => updateForm({ isPostponed: e.target.checked })}
+                            className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                          />
+                          <span>Toplantı Ertelendi (Tarih/No Düzenle)</span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. AGENDA ITEMS AS DRAGGABLE WORD DOCUMENT OBJECTS */}
+                  <div
+                    className="flex flex-col flex-1"
+                    style={{
+                      fontSize: docFontSizeContent,
+                      lineHeight: activeLayout?.itemLineHeight || 1.5,
+                    }}
+                  >
+                    {/* Top Quick Insert Line */}
+                    {canEditForm && (localForm.items?.length || 0) > 0 && (
+                      <div className="group/ins relative h-3 -my-1 flex items-center justify-center">
+                        <div className="w-full h-px bg-transparent group-hover/ins:bg-blue-300 transition-colors" />
+                        <button
+                          type="button"
+                          onClick={() => addItemAt(0, 'numbered')}
+                          className="opacity-0 group-hover/ins:opacity-100 absolute bg-blue-700 hover:bg-blue-800 text-white text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 transition-all"
+                        >
+                          <Plus className="w-2.5 h-2.5" />
+                          <span>En Başa Madde Ekle</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {localForm.items?.map((item, index) => {
+                      const isBlockActive = activeBlockId === item.id;
+                      const isDragging = draggedIndex === index;
+                      const isDragOver = dragOverIndex === index;
+                      const maxLen = localForm.items?.length || 1;
+                      const isTableConfigOpen = openTablePanelId === item.id;
+
+                      return (
+                        <React.Fragment key={item.id}>
+                          <div
+                            onClick={() => setActiveBlockId(item.id)}
+                            onDragOver={(e) => {
+                              if (!canEditForm) return;
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'move';
+                              if (dragOverIndex !== index) setDragOverIndex(index);
+                            }}
+                            onDragLeave={() => {
+                              if (dragOverIndex === index) setDragOverIndex(null);
+                            }}
+                            onDrop={(e) => {
+                              if (!canEditForm) return;
+                              e.preventDefault();
+                              if (draggedIndex !== null && draggedIndex !== index) {
+                                moveItem(localForm.items[draggedIndex].id, index);
+                                toast.success(`${draggedIndex + 1}. madde ${index + 1}. sıraya taşındı.`);
+                              }
+                              setDraggedIndex(null);
+                              setDragOverIndex(null);
+                            }}
+                            className={`group/block relative rounded-lg transition-all duration-150 py-2 px-1.5 -mx-1.5 ${
+                              isDragging
+                                ? 'opacity-35 bg-slate-100 ring-2 ring-dashed ring-slate-400'
+                                : isDragOver
+                                ? 'bg-blue-50/70 ring-2 ring-blue-600 shadow-sm'
+                                : isBlockActive
+                                ? 'bg-blue-50/25 ring-1 ring-blue-300/80'
+                                : 'hover:bg-slate-50/80'
+                            }`}
                           >
-                            KÜÇÜKTEN BÜYÜĞE
-                          </button>
-                          <button 
-                            onClick={() => setSortOrder('desc')}
-                            className={`flex-1 px-3 py-1.5 text-[10px] font-bold rounded-md transition-all ${sortOrder === 'desc' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            {/* FLOATING OBJECT TOOLBAR (TOP-RIGHT OF THE AGENDA BLOCK) */}
+                            {canEditForm && (
+                              <div
+                                className={`font-sans flex flex-wrap items-center gap-1 mb-1.5 sm:mb-0 sm:absolute sm:-top-3 sm:right-2 z-20 bg-white border border-slate-300 shadow-md rounded-lg px-1.5 py-0.5 transition-opacity ${
+                                  isBlockActive
+                                    ? 'opacity-100'
+                                    : 'opacity-100 sm:opacity-0 sm:group-hover/block:opacity-100'
+                                }`}
+                              >
+                                {/* Move Up / Position Input / Move Down */}
+                                <div className="flex items-center bg-slate-100 rounded px-1 py-0.5 mr-0.5">
+                                  <button
+                                    type="button"
+                                    disabled={index === 0}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      moveItem(item.id, index - 1);
+                                    }}
+                                    className="text-slate-600 hover:text-blue-700 disabled:opacity-25 p-0.5"
+                                    title="Bir Üste Taşı"
+                                  >
+                                    <ChevronUp className="w-3.5 h-3.5" />
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={maxLen}
+                                    defaultValue={index + 1}
+                                    key={`blk-pos-${item.id}-${index}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const val = parseInt((e.target as HTMLInputElement).value, 10);
+                                        if (!isNaN(val) && val >= 1 && val <= maxLen && val !== index + 1) {
+                                          moveItem(item.id, val - 1);
+                                        }
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      const val = parseInt(e.target.value, 10);
+                                      if (!isNaN(val) && val >= 1 && val <= maxLen && val !== index + 1) {
+                                        moveItem(item.id, val - 1);
+                                      } else {
+                                        e.target.value = (index + 1).toString();
+                                      }
+                                    }}
+                                    className="w-8 text-center text-[11px] font-bold bg-white border border-slate-300 rounded mx-0.5 py-0 outline-none focus:ring-1 focus:ring-blue-600"
+                                    title="Sıra numarasını yazıp Enter'a basın"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={index === maxLen - 1}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      moveItem(item.id, index + 1);
+                                    }}
+                                    className="text-slate-600 hover:text-blue-700 disabled:opacity-25 p-0.5"
+                                    title="Bir Alta Taşı"
+                                  >
+                                    <ChevronDown className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+
+                                {/* Numbered vs Bullet Toggle */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    updateItem(item.id, { type: item.type === 'numbered' ? 'bullet' : 'numbered' });
+                                  }}
+                                  className="text-[10px] font-bold text-slate-700 hover:bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"
+                                  title="Madde Tipini Değiştir (Numaralı / Noktalı)"
+                                >
+                                  {item.type === 'numbered' ? `${index + 1}.` : '•'}
+                                </button>
+
+                                {/* Sub-item Add */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const newSubItems = [...(item.subItems || []), { id: uuidv4(), type: 'bullet' as const, text: '' }];
+                                    updateItem(item.id, { subItems: newSubItems });
+                                  }}
+                                  className="text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded flex items-center gap-0.5"
+                                  title="Alt Madde Ekle"
+                                >
+                                  <Plus className="w-2.5 h-2.5" />
+                                  <span>Alt Madde</span>
+                                </button>
+
+                                {/* Table Add or Toggle Settings */}
+                                {!item.hasTable ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      addTableToItem(item.id);
+                                    }}
+                                    className="text-[10px] font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded flex items-center gap-0.5"
+                                    title="Bu Maddeye Tablo Ekle"
+                                  >
+                                    <TableIcon className="w-2.5 h-2.5" />
+                                    <span>+ Tablo</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenTablePanelId(isTableConfigOpen ? null : item.id);
+                                    }}
+                                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 border ${
+                                      isTableConfigOpen
+                                        ? 'bg-blue-700 text-white border-blue-700'
+                                        : 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100'
+                                    }`}
+                                    title="Tablo Araçlarını ve Muhtaçlık Kontrolünü Aç/Kapat"
+                                  >
+                                    <TableIcon className="w-2.5 h-2.5" />
+                                    <span>Tablo Ayarı</span>
+                                  </button>
+                                )}
+
+                                {/* Age & Gender Compact Inputs */}
+                                <input
+                                  type="text"
+                                  value={item.age || ''}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => updateItem(item.id, { age: e.target.value })}
+                                  placeholder="Yaş"
+                                  className="w-10 text-[10px] font-semibold border border-slate-200 rounded px-1 py-0.5 text-center bg-slate-50 focus:bg-white outline-none"
+                                  title="Yaş (Baskı sıralaması için opsiyonel)"
+                                />
+                                <select
+                                  value={item.gender || ''}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => {
+                                    const g = e.target.value as 'male' | 'female' | '';
+                                    updateItem(item.id, { gender: g || undefined });
+                                  }}
+                                  className="text-[10px] font-semibold border border-slate-200 rounded px-1 py-0.5 bg-slate-50 focus:bg-white outline-none"
+                                  title="Cinsiyet (Baskı sıralaması için opsiyonel)"
+                                >
+                                  <option value="">Cins.</option>
+                                  <option value="female">K</option>
+                                  <option value="male">E</option>
+                                </select>
+
+                                {/* Delete Block */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeItem(item.id);
+                                  }}
+                                  className="text-red-600 hover:bg-red-50 p-1 rounded transition-colors"
+                                  title="Maddeyi (Tablosu ve Alt Maddeleriyle Birlikte) Sil"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+
+                            {/* MAIN AGENDA ITEM LINE: DRAG HANDLE + NUMBER + INLINE WORD EDITOR */}
+                            <div className="flex items-baseline text-left">
+                              {/* Drag Handle + Number */}
+                              <div
+                                draggable={canEditForm}
+                                onDragStart={(e) => {
+                                  if (!canEditForm) return;
+                                  e.dataTransfer.effectAllowed = 'move';
+                                  e.dataTransfer.setData('text/plain', index.toString());
+                                  setDraggedIndex(index);
+                                }}
+                                onDragEnd={() => {
+                                  setDraggedIndex(null);
+                                  setDragOverIndex(null);
+                                }}
+                                className={`flex items-center mr-1.5 select-none shrink-0 ${
+                                  canEditForm ? 'cursor-grab active:cursor-grabbing' : ''
+                                }`}
+                                title={canEditForm ? 'Maddeyi (tablo ve alt maddeleriyle birlikte) sürükleyip taşımak için tutun' : ''}
+                              >
+                                {canEditForm && (
+                                  <GripVertical className="w-3.5 h-3.5 text-slate-300 group-hover/block:text-slate-500 -ml-1 mr-0.5 shrink-0 transition-colors" />
+                                )}
+                                <span className="font-bold whitespace-nowrap min-w-[20px]">
+                                  {item.type === 'numbered' ? `${index + 1}.` : '•'}
+                                </span>
+                              </div>
+
+                              {/* Inline Rich Text Content */}
+                              <div className="flex-1 min-w-0">
+                                <RichTextEditor
+                                  variant="inline"
+                                  value={item.text}
+                                  disabled={!canEditForm}
+                                  onEditorFocus={(ed) => {
+                                    setActiveEditor(ed);
+                                    setActiveBlockId(item.id);
+                                  }}
+                                  onChange={(val) => updateItem(item.id, { text: val })}
+                                  placeholder={`${index + 1}. gündem maddesi metnini doğrudan buraya yazın...`}
+                                />
+                              </div>
+                            </div>
+
+                            {/* ATTACHED TABLE OBJECT (MOVES TOGETHER WITH THE AGENDA ITEM) */}
+                            {item.hasTable && item.table && (
+                              <div className="ml-4 sm:ml-7 mt-2.5">
+                                {/* Collapsible Table Action Bar */}
+                                {canEditForm && (
+                                  <div className="font-sans mb-1.5 flex flex-wrap items-center justify-between gap-2 bg-slate-100/90 border border-slate-300 rounded-t-lg px-2.5 py-1.5 text-[11px]">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      {/* Muhtaçlık Toggle */}
+                                      <label className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border font-bold cursor-pointer transition-colors ${
+                                        isTableMuhtaclikActive(item.table)
+                                          ? 'bg-emerald-100 border-emerald-400 text-emerald-950'
+                                          : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                                      }`}>
+                                        <input
+                                          type="checkbox"
+                                          checked={isTableMuhtaclikActive(item.table)}
+                                          onChange={(e) => {
+                                            const active = e.target.checked;
+                                            const currentTable = item.table!;
+                                            if (active) {
+                                              const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
+                                              const targetCol = currentTable.incomeColumnIndex !== undefined && currentTable.incomeColumnIndex >= 0
+                                                ? currentTable.incomeColumnIndex
+                                                : findIncomeColumnIndex(currentTable.columns, currentTable.rows);
+
+                                              if (targetCol >= 0) {
+                                                const result = sortAndProcessTableByIncome(currentTable.columns, currentTable.rows, muhtaclikLimit, targetCol);
+                                                updateItem(item.id, {
+                                                  table: {
+                                                    ...currentTable,
+                                                    columns: result.columns,
+                                                    rows: result.rows,
+                                                    enableMuhtaclikCheck: true,
+                                                    incomeColumnIndex: targetCol
+                                                  }
+                                                });
+                                                toast.success(`Muhtaçlık kontrolü aktif (${currentTable.columns[targetCol] || `Sütun ${targetCol + 1}`}).`);
+                                              } else {
+                                                updateItem(item.id, {
+                                                  table: {
+                                                    ...currentTable,
+                                                    enableMuhtaclikCheck: true,
+                                                    incomeColumnIndex: -1
+                                                  }
+                                                });
+                                                toast.info('Muhtaçlık kontrolü açıldı. Lütfen gelir sütununu seçin.');
+                                              }
+                                            } else {
+                                              updateItem(item.id, {
+                                                table: {
+                                                  ...currentTable,
+                                                  enableMuhtaclikCheck: false
+                                                }
+                                              });
+                                            }
+                                          }}
+                                          className="w-3 h-3 text-emerald-700 rounded"
+                                        />
+                                        <Scale className="w-3 h-3 text-emerald-700" />
+                                        <span>Muhtaçlık Kontrolü</span>
+                                      </label>
+
+                                      {isTableMuhtaclikActive(item.table) && (
+                                        <select
+                                          value={
+                                            item.table.incomeColumnIndex !== undefined && item.table.incomeColumnIndex >= 0 && item.table.incomeColumnIndex < item.table.columns.length
+                                              ? item.table.incomeColumnIndex
+                                              : -1
+                                          }
+                                          onChange={(e) => {
+                                            const newColIdx = Number(e.target.value);
+                                            const muhtaclikLimit = settings?.muhtaclikSiniri ?? 9358.50;
+                                            const currentTable = item.table!;
+                                            if (newColIdx >= 0) {
+                                              const result = sortAndProcessTableByIncome(currentTable.columns, currentTable.rows, muhtaclikLimit, newColIdx);
+                                              updateItem(item.id, {
+                                                table: {
+                                                  ...currentTable,
+                                                  columns: result.columns,
+                                                  rows: result.rows,
+                                                  incomeColumnIndex: newColIdx
+                                                }
+                                              });
+                                              toast.success(`Gelir sütunu: ${currentTable.columns[newColIdx] || `Sütun ${newColIdx + 1}`}`);
+                                            } else {
+                                              updateItem(item.id, {
+                                                table: {
+                                                  ...currentTable,
+                                                  incomeColumnIndex: -1
+                                                }
+                                              });
+                                            }
+                                          }}
+                                          className="text-[11px] font-bold rounded px-1.5 py-0.5 bg-white border border-emerald-400 text-slate-800 outline-none"
+                                        >
+                                          <option value={-1}>-- Gelir Sütunu Seç --</option>
+                                          {item.table.columns.map((col, cIdx) => (
+                                            <option key={cIdx} value={cIdx}>
+                                              Sütun {cIdx + 1}: {col || '(İsimsiz)'}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      )}
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newCols = [...item.table!.columns, 'YENİ SÜTUN'];
+                                          const newRows = item.table!.rows.map(r => [...r, '']);
+                                          updateItem(item.id, { table: { ...item.table!, columns: newCols, rows: newRows } });
+                                        }}
+                                        className="px-2 py-0.5 bg-white hover:bg-slate-50 border border-slate-300 rounded font-bold text-slate-700"
+                                      >
+                                        + Sütun
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newRow = Array(item.table!.columns.length).fill('');
+                                          const newRows = [...item.table!.rows.map(r => [...r]), newRow];
+                                          const siraIdx = item.table!.columns.findIndex(c => isSiraColumn(c));
+                                          if (siraIdx >= 0) {
+                                            newRows.forEach((r, idx) => { r[siraIdx] = (idx + 1).toString(); });
+                                          }
+                                          updateItem(item.id, { table: { ...item.table!, rows: newRows } });
+                                        }}
+                                        className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded font-bold text-blue-800"
+                                      >
+                                        + Satır
+                                      </button>
+                                      <label className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded font-bold text-emerald-800 cursor-pointer flex items-center gap-1">
+                                        <FileUp className="w-3 h-3" />
+                                        <span>Excel Yükle</span>
+                                        <input
+                                          type="file"
+                                          accept=".xlsx,.xls,.csv"
+                                          className="hidden"
+                                          onChange={(e) => importExcelToTable(item.id, e)}
+                                        />
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => exportExcelFromTable(item.table!, index)}
+                                        className="px-2 py-0.5 bg-white hover:bg-slate-50 border border-slate-300 rounded font-bold text-slate-700 flex items-center gap-1"
+                                        title="Tabloyu Excel Olarak İndir"
+                                      >
+                                        <FileDown className="w-3 h-3" />
+                                        <span className="hidden sm:inline">İndir</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeTableFromItem(item.id)}
+                                        className="px-2 py-0.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded font-bold text-red-700"
+                                        title="Tabloyu Kaldır"
+                                      >
+                                        Tabloyu Sil
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Real Word-Style Bordered Table on Canvas */}
+                                <div className="overflow-x-auto">
+                                  <table className="w-full border-collapse border border-black text-[10px] sm:text-[11px]">
+                                    <thead>
+                                      <tr>
+                                        {item.table.columns.map((col, cI) => {
+                                          const isSira = isSiraColumn(col);
+                                          const isIncomeCol = isTableMuhtaclikActive(item.table) && item.table?.incomeColumnIndex === cI;
+                                          return (
+                                            <th
+                                              key={cI}
+                                              className={`border border-black bg-slate-100 font-bold uppercase p-1 relative group/th ${
+                                                isSira ? 'w-12 text-center' : 'min-w-[85px]'
+                                              } ${isIncomeCol ? 'bg-emerald-50/90' : ''}`}
+                                            >
+                                              <input
+                                                type="text"
+                                                disabled={!canEditForm}
+                                                value={col}
+                                                onChange={(e) => {
+                                                  const newCols = [...item.table!.columns];
+                                                  newCols[cI] = e.target.value;
+                                                  updateItem(item.id, { table: { ...item.table!, columns: newCols } });
+                                                }}
+                                                className={`w-full bg-transparent font-bold uppercase outline-none focus:bg-white px-1 rounded ${
+                                                  isSira ? 'text-center' : 'text-left'
+                                                }`}
+                                                placeholder={`SÜTUN ${cI + 1}`}
+                                              />
+                                              {canEditForm && item.table!.columns.length > 1 && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    const currentTable = item.table!;
+                                                    const newCols = currentTable.columns.filter((_, i) => i !== cI);
+                                                    const newRows = currentTable.rows.map(r => r.filter((_, i) => i !== cI));
+                                                    let newIncomeCol = currentTable.incomeColumnIndex;
+                                                    if (newIncomeCol !== undefined && newIncomeCol >= 0) {
+                                                      if (newIncomeCol === cI) newIncomeCol = -1;
+                                                      else if (newIncomeCol > cI) newIncomeCol = newIncomeCol - 1;
+                                                    }
+                                                    updateItem(item.id, {
+                                                      table: { ...currentTable, columns: newCols, rows: newRows, incomeColumnIndex: newIncomeCol }
+                                                    });
+                                                  }}
+                                                  className="opacity-0 group-hover/th:opacity-100 absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full p-0.5 shadow-xs transition-opacity"
+                                                  title="Bu Sütunu Sil"
+                                                >
+                                                  <X className="w-2.5 h-2.5" />
+                                                </button>
+                                              )}
+                                            </th>
+                                          );
+                                        })}
+                                        {canEditForm && (
+                                          <th className="border border-black bg-slate-100 w-14 text-center font-sans text-[9px] text-slate-500">
+                                            İşlem
+                                          </th>
+                                        )}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {item.table.rows.map((row, rI) => {
+                                        const isMuhtaclik = isTableMuhtaclikActive(item.table);
+                                        const targetIncomeCol = item.table?.incomeColumnIndex !== undefined && item.table.incomeColumnIndex >= 0
+                                          ? item.table.incomeColumnIndex
+                                          : -1;
+                                        const isOver = isMuhtaclik && targetIncomeCol >= 0 && isOverLimitRow(row);
+                                        const isStringRow = isMuhtaclik && targetIncomeCol >= 0 && !isOver && isStringIncomeRow(row, targetIncomeCol);
+                                        const isHighlight = isOver || isStringRow;
+
+                                        return (
+                                          <tr
+                                            key={rI}
+                                            className={`group/tr ${isHighlight ? 'bg-slate-200/80 font-bold' : 'hover:bg-blue-50/30'}`}
+                                          >
+                                            {row.map((cell, cI) => {
+                                              const isSira = isSiraColumn(item.table!.columns[cI]);
+                                              const isCellLimitOver = isMuhtaclik && isOverLimitRow([cell]);
+                                              return (
+                                                <td
+                                                  key={cI}
+                                                  className={`border border-black p-0.5 ${isSira ? 'text-center font-bold bg-slate-50/80' : ''}`}
+                                                >
+                                                  <input
+                                                    type="text"
+                                                    data-table-cell={`${item.id}-${rI}-${cI}`}
+                                                    readOnly={isSira || !canEditForm}
+                                                    value={isSira ? (rI + 1).toString() : cell}
+                                                    onFocus={(e) => {
+                                                      if (isCellLimitOver) e.target.select();
+                                                    }}
+                                                    onChange={(e) => {
+                                                      if (isSira) return;
+                                                      const newRows = [...item.table!.rows];
+                                                      newRows[rI] = [...newRows[rI]];
+                                                      newRows[rI][cI] = e.target.value;
+                                                      updateItem(item.id, { table: { ...item.table!, rows: newRows } });
+                                                    }}
+                                                    onBlur={(e) => {
+                                                      if (!isSira) {
+                                                        handleCellBlurOrSubmit(item.id, item.table!, rI, cI, e.target.value);
+                                                      }
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                      if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        handleCellBlurOrSubmit(item.id, item.table!, rI, cI, e.currentTarget.value);
+                                                        if (rI < item.table!.rows.length - 1) {
+                                                          const nextInput = document.querySelector<HTMLInputElement>(`input[data-table-cell="${item.id}-${rI + 1}-${cI}"]`);
+                                                          if (nextInput) {
+                                                            nextInput.focus();
+                                                            nextInput.select();
+                                                          }
+                                                        } else if (canEditForm) {
+                                                          const newRow = Array(item.table!.columns.length).fill('');
+                                                          const newRows = [...item.table!.rows.map(r => [...r]), newRow];
+                                                          const siraIdx = item.table!.columns.findIndex(c => isSiraColumn(c));
+                                                          if (siraIdx >= 0) {
+                                                            newRows.forEach((r, idx) => { r[siraIdx] = (idx + 1).toString(); });
+                                                          }
+                                                          updateItem(item.id, { table: { ...item.table!, rows: newRows } });
+                                                          setTimeout(() => {
+                                                            const nextInput = document.querySelector<HTMLInputElement>(`input[data-table-cell="${item.id}-${rI + 1}-${cI}"]`);
+                                                            if (nextInput) {
+                                                              nextInput.focus();
+                                                              nextInput.select();
+                                                            }
+                                                          }, 50);
+                                                        }
+                                                      }
+                                                    }}
+                                                    className={`w-full bg-transparent px-1 py-0.5 outline-none focus:bg-white focus:ring-1 focus:ring-blue-600 rounded ${
+                                                      isSira ? 'text-center font-bold' : ''
+                                                    } ${isHighlight ? 'font-bold' : ''} ${
+                                                      isCellLimitOver ? 'text-red-700 font-black' : ''
+                                                    }`}
+                                                  />
+                                                </td>
+                                              );
+                                            })}
+                                            {canEditForm && (
+                                              <td className="border border-black p-0.5 text-center font-sans whitespace-nowrap">
+                                                <div className="inline-flex items-center gap-0.5">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      const newRow = Array(item.table!.columns.length).fill('');
+                                                      const newRows = item.table!.rows.map(r => [...r]);
+                                                      newRows.splice(rI + 1, 0, newRow);
+                                                      const siraIdx = item.table!.columns.findIndex(c => isSiraColumn(c));
+                                                      if (siraIdx >= 0) {
+                                                        newRows.forEach((r, idx) => { r[siraIdx] = (idx + 1).toString(); });
+                                                      }
+                                                      updateItem(item.id, { table: { ...item.table!, rows: newRows } });
+                                                    }}
+                                                    className="text-blue-700 hover:bg-blue-100 p-0.5 rounded"
+                                                    title="Altına Satır Ekle"
+                                                  >
+                                                    <Plus className="w-3 h-3" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      const newRows = item.table!.rows.filter((_, i) => i !== rI).map(r => [...r]);
+                                                      const siraIdx = item.table!.columns.findIndex(c => isSiraColumn(c));
+                                                      if (siraIdx >= 0) {
+                                                        newRows.forEach((r, idx) => { r[siraIdx] = (idx + 1).toString(); });
+                                                      }
+                                                      updateItem(item.id, { table: { ...item.table!, rows: newRows } });
+                                                    }}
+                                                    className="text-red-600 hover:bg-red-100 p-0.5 rounded"
+                                                    title="Satırı Sil"
+                                                  >
+                                                    <Trash2 className="w-3 h-3" />
+                                                  </button>
+                                                </div>
+                                              </td>
+                                            )}
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* ATTACHED SUB-ITEMS (MOVE TOGETHER WITH THE AGENDA ITEM) */}
+                            {item.subItems && item.subItems.length > 0 && (
+                              <div className="ml-6 sm:ml-8 mt-1.5 space-y-1">
+                                {item.subItems.map((sub, sIdx) => (
+                                  <div key={sub.id} className="flex items-baseline gap-1.5 group/sub">
+                                    <span className="font-bold whitespace-nowrap min-w-[22px]">
+                                      {sub.type === 'numbered' ? `${index + 1}.${sIdx + 1}.` : '•'}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      <RichTextEditor
+                                        variant="inline"
+                                        value={sub.text}
+                                        disabled={!canEditForm}
+                                        onEditorFocus={(ed) => {
+                                          setActiveEditor(ed);
+                                          setActiveBlockId(item.id);
+                                        }}
+                                        onChange={(val) => {
+                                          const newSubs = item.subItems!.map(s => s.id === sub.id ? { ...s, text: val } : s);
+                                          updateItem(item.id, { subItems: newSubs });
+                                        }}
+                                        placeholder="Alt madde metni..."
+                                      />
+                                    </div>
+                                    {canEditForm && (
+                                      <div className="font-sans flex items-center gap-0.5 opacity-80 sm:opacity-0 group-hover/sub:opacity-100 transition-opacity shrink-0">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const newSubs = item.subItems!.map(s => s.id === sub.id ? { ...s, type: (s.type === 'numbered' ? 'bullet' : 'numbered') as 'numbered' | 'bullet' } : s);
+                                            updateItem(item.id, { subItems: newSubs });
+                                          }}
+                                          className="text-[9px] font-bold px-1 py-0.5 rounded bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                          title="Alt Madde Tipini Değiştir"
+                                        >
+                                          {sub.type === 'numbered' ? '1.1' : '•'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const newSubs = item.subItems!.filter(s => s.id !== sub.id);
+                                            updateItem(item.id, { subItems: newSubs });
+                                          }}
+                                          className="text-red-500 hover:bg-red-50 p-0.5 rounded"
+                                          title="Alt Maddeyi Sil"
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* In-between Hover Line to Insert New Block Here */}
+                          {canEditForm && (
+                            <div className="group/ins relative h-3 -my-0.5 flex items-center justify-center">
+                              <div className="w-full h-px bg-transparent group-hover/ins:bg-blue-300 transition-colors" />
+                              <button
+                                type="button"
+                                onClick={() => addItemAt(index + 1, 'numbered')}
+                                className="opacity-0 group-hover/ins:opacity-100 absolute bg-blue-700 hover:bg-blue-800 text-white text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 transition-all z-10"
+                              >
+                                <Plus className="w-2.5 h-2.5" />
+                                <span>{index + 2}. Madde Olarak Araya Ekle</span>
+                              </button>
+                            </div>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+
+                    {/* Empty State or Bottom Quick Add Bar on the Paper */}
+                    {canEditForm && (
+                      <div className="mt-4 pt-2 border-t border-dashed border-slate-200 flex flex-wrap items-center justify-center gap-2 font-sans print:hidden">
+                        <button
+                          type="button"
+                          onClick={() => addItem('numbered')}
+                          className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Yeni Gündem Maddesi Ekle ({(localForm.items?.length || 0) + 1}. Madde)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addItem('bullet')}
+                          className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                          <span>Noktalı / Çizgili Satır Ekle</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 4. FOOTER DECISION NOTE & BOARD SIGNATURES DIRECTLY ON THE A4 CANVAS */}
+                  <div className="mt-10 pt-4 border-t border-slate-200">
+                    {/* Decision Footer Note */}
+                    <div
+                      className="font-bold text-center mb-8"
+                      style={{ fontSize: docFontSizeContent }}
+                    >
+                      {isAdmin && canEditForm ? (
+                        <RichTextEditor
+                          variant="inline"
+                          value={localForm.footerText}
+                          disabled={!canEditForm}
+                          onEditorFocus={setActiveEditor}
+                          onChange={(val) => updateForm({ footerText: val })}
+                          placeholder="Karar sonuç metnini girin..."
+                          className="text-center font-bold"
+                        />
+                      ) : localForm.footerText.includes('<') ? (
+                        <div className="rich-text-preview" dangerouslySetInnerHTML={{ __html: localForm.footerText }} />
+                      ) : (
+                        <div>{localForm.footerText}</div>
+                      )}
+                    </div>
+
+                    {/* Signatures Block with Admin Popover Picker */}
+                    <div className="relative group/sig">
+                      {isAdmin && canEditForm && (
+                        <div className="flex justify-center mb-4 font-sans print:hidden">
+                          <button
+                            type="button"
+                            onClick={() => setIsSignerPickerOpen(!isSignerPickerOpen)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                              isSignerPickerOpen
+                                ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+                            }`}
                           >
-                            BÜYÜKTEN KÜÇÜĞE
+                            <Users className="w-3.5 h-3.5 text-blue-700" />
+                            <span>Heyet İmzacılarını Seç ({localForm.signatureMembers.length} / {allMembers.length} Üye)</span>
+                            {isSignerPickerOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                           </button>
                         </div>
-                      </div>
+                      )}
+
+                      {/* Inline Signer Selection Drawer */}
+                      {isAdmin && canEditForm && isSignerPickerOpen && (
+                        <div className="font-sans mb-6 p-4 bg-slate-50 border border-slate-300 rounded-xl shadow-inner space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                            <span className="text-xs font-bold text-slate-800 uppercase">Toplantıya Katılan İmzacı Üyeler</span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => updateForm({ signatureMembers: allMembers.map(m => m.id) })}
+                                className="text-[11px] font-bold text-blue-700 hover:bg-blue-100 px-2 py-0.5 rounded"
+                              >
+                                Tümünü Seç
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateForm({ signatureMembers: [] })}
+                                className="text-[11px] font-bold text-red-600 hover:bg-red-100 px-2 py-0.5 rounded"
+                              >
+                                Tümünü Kaldır
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setIsSignerPickerOpen(false)}
+                                className="text-[11px] font-bold bg-slate-800 text-white px-2.5 py-0.5 rounded"
+                              >
+                                Kapat
+                              </button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                            {allMembers.map((member) => {
+                              const checked = localForm.signatureMembers.includes(member.id);
+                              return (
+                                <label
+                                  key={member.id}
+                                  className={`flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all text-xs ${
+                                    checked
+                                      ? 'bg-blue-50/90 border-blue-400 text-slate-900 font-bold'
+                                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={(e) => {
+                                      const newSignatures = e.target.checked
+                                        ? [...localForm.signatureMembers, member.id]
+                                        : localForm.signatureMembers.filter(mId => mId !== member.id);
+                                      updateForm({ signatureMembers: newSignatures });
+                                    }}
+                                    className="rounded text-blue-700 focus:ring-blue-600 w-3.5 h-3.5"
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="truncate font-bold uppercase text-[11px]">{member.name}</div>
+                                    <div className="truncate text-[10px] text-slate-500 uppercase">{member.title}</div>
+                                    {member.isProxy && (
+                                      <div className="truncate text-[9px] text-amber-700 font-bold uppercase">
+                                        Vekil: {member.proxyName}
+                                      </div>
+                                    )}
+                                  </div>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Live Signature Layout Preview on Canvas */}
+                      {finalSigners.length === 0 ? (
+                        <div className="text-center py-6 text-slate-400 font-sans text-xs italic border border-dashed border-slate-200 rounded-lg">
+                          Henüz imzacı heyet üyesi seçilmedi.
+                        </div>
+                      ) : (
+                        <div className="w-full pt-2">
+                          {topSigners.length > 0 && (
+                            <div className="flex justify-center w-full mb-10 text-center">
+                              {topSigners.map(m => (
+                                <div key={m.id} className="flex flex-col items-center">
+                                  <div className="font-bold whitespace-pre-wrap text-xs" style={{ lineHeight: 1.15 }}>
+                                    {formatMemberName(m)}
+                                  </div>
+                                  <div className="font-bold whitespace-pre-wrap text-xs mt-1" style={{ lineHeight: 1.15 }}>
+                                    {formatMemberTitle(m)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {otherSigners.length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-8 text-center w-full">
+                              {otherSigners.map((m) => (
+                                <div key={m.id} className="flex flex-col items-center">
+                                  <div className="font-bold whitespace-pre-wrap text-xs" style={{ lineHeight: 1.15 }}>
+                                    {formatMemberName(m)}
+                                  </div>
+                                  <div className="font-bold whitespace-pre-wrap text-xs mt-1" style={{ lineHeight: 1.15 }}>
+                                    {formatMemberTitle(m)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <p className="text-[9px] text-slate-400 italic text-center">* Sadece yaş veya cinsiyet belirtilen maddeler kendi aralarında yer değiştirir. Kurumsal maddeler sabit kalır.</p>
                   </div>
                 </div>
-                <div ref={printRef} className="a4-page">
+              </div>
+            </div>
+          ) : (
+            /* ==================== PRINT PREVIEW & AGE/GENDER AUTO-SORT TAB ==================== */
+            <div className="w-full flex flex-col items-center">
+              <div className="w-full max-w-[210mm] mb-4">
+                <div className="bg-white p-3.5 rounded-xl border border-slate-300 shadow-sm flex flex-col gap-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-tight">Baskı Öncesi Otomatik Sıralama (Yaş / Cinsiyet)</span>
+                    <button
+                      type="button"
+                      onClick={() => setSortOrder('none')}
+                      className="text-[11px] font-bold text-red-600 hover:underline uppercase"
+                    >
+                      Sıralamayı Sıfırla
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">1. Cinsiyet Önceliği</span>
+                      <div className="flex bg-slate-100 p-1 rounded-lg">
+                        <button 
+                          type="button"
+                          onClick={() => setGenderPriority('female')}
+                          className={`flex-1 px-2.5 py-1.5 text-[11px] font-bold rounded-md transition-all ${genderPriority === 'female' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                          ÖNCE KADINLAR
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => setGenderPriority('male')}
+                          className={`flex-1 px-2.5 py-1.5 text-[11px] font-bold rounded-md transition-all ${genderPriority === 'male' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                          ÖNCE ERKEKLER
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">2. Yaş Sıralaması</span>
+                      <div className="flex bg-slate-100 p-1 rounded-lg">
+                        <button 
+                          type="button"
+                          onClick={() => setSortOrder('asc')}
+                          className={`flex-1 px-2.5 py-1.5 text-[11px] font-bold rounded-md transition-all ${sortOrder === 'asc' ? 'bg-blue-700 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                          KÜÇÜKTEN BÜYÜĞE
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => setSortOrder('desc')}
+                          className={`flex-1 px-2.5 py-1.5 text-[11px] font-bold rounded-md transition-all ${sortOrder === 'desc' ? 'bg-blue-700 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                          BÜYÜKTEN KÜÇÜĞE
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-full overflow-x-auto flex justify-center pb-10">
+                <div ref={printRef} className="a4-page shrink-0">
                   <PrintPreview 
                     form={(() => {
                       const sortItems = (items: any[]): any[] => {
                         if (!items || items.length === 0) return items;
-                        
-                        // First, sort children recursively
                         const itemsWithSortedSubs = items.map(item => ({
                           ...item,
                           subItems: item.subItems ? sortItems(item.subItems) : item.subItems
@@ -2322,44 +2524,41 @@ export default function FormEditorPage() {
                   />
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
-      
-      {/* Quick Navigation Floating Buttons */}
-      {activeTab === 'editor' && (
-        <div className="fixed bottom-10 right-10 flex flex-col gap-3 z-50 print:hidden transition-opacity">
-          <button 
-            disabled={isSaving}
-            onClick={() => {
-              const container = document.getElementById('main-scroll-container');
-              container?.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            className="w-12 h-12 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 hover:scale-110 transition-all active:scale-95 disabled:opacity-50"
-            title="En Üste Git"
-          >
-            <ArrowUp className="w-6 h-6" />
-          </button>
-          <button 
-            disabled={isSaving}
-            onClick={() => {
-              const container = document.getElementById('main-scroll-container');
-              container?.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-            }}
-            className="w-12 h-12 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 hover:scale-110 transition-all active:scale-95 disabled:opacity-50"
-            title="En Alta Git"
-          >
-            <ArrowDown className="w-6 h-6" />
-          </button>
-        </div>
-      )}
-      
-      {/* Sürükle-Bırak Sıralama Modalı */}
+
+      {/* Floating Scroll Top/Bottom Helper */}
+      <div className="fixed bottom-4 right-4 flex flex-col gap-1.5 z-40 print:hidden">
+        <button 
+          type="button"
+          onClick={() => {
+            const container = document.getElementById('main-scroll-container');
+            container?.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className="w-9 h-9 bg-slate-900/90 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all"
+          title="Sayfa Başına Git"
+        >
+          <ArrowUp className="w-4 h-4" />
+        </button>
+        <button 
+          type="button"
+          onClick={() => {
+            const container = document.getElementById('main-scroll-container');
+            container?.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+          }}
+          className="w-9 h-9 bg-slate-900/90 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all"
+          title="Sayfa Sonuna Git"
+        >
+          <ArrowDown className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Bulk Drag-and-Drop Reorder Modal */}
       {isReorderModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
-            {/* Modal Header */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
@@ -2367,30 +2566,29 @@ export default function FormEditorPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                    Gündem Maddeleri Sıralama Düzenleyici
+                    Toplu Madde Sıralama
                     <span className="text-[11px] font-semibold bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full">
                       {localForm.items?.length || 0} Madde
                     </span>
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    Maddeleri sürükleyip bırakarak veya ok butonlarıyla sıralayabilirsiniz. Sıralama anında forma uygulanır.
+                    Her maddeyi sürükleyip bırakarak veya yeni sıra numarasını yazarak taşıyabilirsiniz. Tablo ve alt maddeler maddeyle birlikte taşınır.
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setIsReorderModalOpen(false);
                   setDraggedIndex(null);
                   setDragOverIndex(null);
                 }}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
-                title="Kapat"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Body - Items List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-1.5 divide-y divide-slate-100">
               {(!localForm.items || localForm.items.length === 0) ? (
                 <div className="text-center py-12 text-slate-400 text-xs italic">
@@ -2408,7 +2606,7 @@ export default function FormEditorPage() {
                   return (
                     <div
                       key={item.id}
-                      draggable={!localForm.isLocked || localForm.isPostponed}
+                      draggable={canEditForm}
                       onDragStart={(e) => {
                         e.dataTransfer.effectAllowed = 'move';
                         e.dataTransfer.setData('text/plain', index.toString());
@@ -2417,9 +2615,7 @@ export default function FormEditorPage() {
                       onDragOver={(e) => {
                         e.preventDefault();
                         e.dataTransfer.dropEffect = 'move';
-                        if (dragOverIndex !== index) {
-                          setDragOverIndex(index);
-                        }
+                        if (dragOverIndex !== index) setDragOverIndex(index);
                       }}
                       onDragLeave={() => {
                         if (dragOverIndex === index) setDragOverIndex(null);
@@ -2438,21 +2634,16 @@ export default function FormEditorPage() {
                       }}
                       className={`flex items-center gap-2.5 p-2 rounded-lg border transition-all ${
                         isDragging
-                          ? 'opacity-30 bg-slate-100 border-dashed border-slate-400 scale-[0.99]'
+                          ? 'opacity-30 bg-slate-100 border-dashed border-slate-400'
                           : isDragOver
-                          ? 'border-blue-500 bg-blue-50/70 shadow-sm'
+                          ? 'border-blue-600 bg-blue-50/70 shadow-sm'
                           : 'bg-white hover:bg-slate-50 border-slate-200'
                       }`}
                     >
-                      {/* Drag Handle */}
-                      <div
-                        className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-600 shrink-0"
-                        title="Sürüklemek için basılı tutun"
-                      >
+                      <div className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-600 shrink-0">
                         <GripVertical className="w-4 h-4" />
                       </div>
 
-                      {/* Rank Input / Badge */}
                       <div className="flex items-center gap-1 shrink-0">
                         <span className="text-[11px] font-bold text-slate-400">#</span>
                         <input
@@ -2461,7 +2652,7 @@ export default function FormEditorPage() {
                           max={localForm.items.length}
                           defaultValue={index + 1}
                           key={`pos-${item.id}-${index}`}
-                          disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                          disabled={!canEditForm}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               const val = parseInt((e.target as HTMLInputElement).value, 10);
@@ -2478,60 +2669,45 @@ export default function FormEditorPage() {
                               e.target.value = (index + 1).toString();
                             }
                           }}
-                          className="w-11 text-center text-xs font-bold border border-slate-300 rounded px-1 py-1 focus:ring-1 focus:ring-blue-500 bg-white"
-                          title="Yeni sıra numarasını yazıp Enter'a basarak taşıyabilirsiniz"
+                          className="w-11 text-center text-xs font-bold border border-slate-300 rounded px-1 py-1 focus:ring-1 focus:ring-blue-600 bg-white"
                         />
                       </div>
 
-                      {/* Item Content Snippet */}
                       <div className="flex-1 min-w-0 pr-2">
                         <p className="text-xs text-slate-800 font-medium truncate">
                           {plainText || <span className="text-slate-400 italic">(Metin girilmemiş)</span>}
                         </p>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <span className="text-[10px] text-slate-400 uppercase font-semibold">
-                            {item.type === 'numbered' ? 'Numaralı' : 'Çizgili'}
+                            {item.type === 'numbered' ? 'Numaralı' : 'Noktalı'}
                           </span>
-                          {item.age && (
-                            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium">
-                              Yaş: {item.age}
-                            </span>
-                          )}
-                          {item.gender && (
-                            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium">
-                              {item.gender === 'female' ? 'Kadın' : 'Erkek'}
-                            </span>
-                          )}
                           {item.hasTable && (
-                            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.2 rounded font-medium">
-                              Tablo
+                            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 rounded font-semibold">
+                              Tablo ({item.table?.rows.length || 0} satır)
                             </span>
                           )}
                           {item.subItems && item.subItems.length > 0 && (
-                            <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded font-medium">
+                            <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 rounded font-semibold">
                               +{item.subItems.length} Alt Madde
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Up / Down Controls */}
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           type="button"
-                          disabled={index === 0 || isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                          disabled={index === 0 || !canEditForm}
                           onClick={() => moveItem(item.id, index - 1)}
-                          className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
-                          title="Yukarı Taşı"
+                          className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-20"
                         >
                           <ChevronUp className="w-4 h-4" />
                         </button>
                         <button
                           type="button"
-                          disabled={index === localForm.items.length - 1 || isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                          disabled={index === localForm.items.length - 1 || !canEditForm}
                           onClick={() => moveItem(item.id, index + 1)}
-                          className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
-                          title="Aşağı Taşı"
+                          className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-20"
                         >
                           <ChevronDown className="w-4 h-4" />
                         </button>
@@ -2542,10 +2718,9 @@ export default function FormEditorPage() {
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 bg-slate-50">
               <span className="text-[11px] text-slate-500">
-                💡 İpucu: Maddeleri tutamaçtan sürükleyebilir, oklarla taşıyabilir veya doğrudan yeni numarasını yazabilirsiniz.
+                Sıralama anında belgeye uygulanır.
               </span>
               <button
                 type="button"
@@ -2554,7 +2729,7 @@ export default function FormEditorPage() {
                   setDraggedIndex(null);
                   setDragOverIndex(null);
                 }}
-                className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors shadow-2xs"
+                className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg"
               >
                 Tamamla
               </button>
