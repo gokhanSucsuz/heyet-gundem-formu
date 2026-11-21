@@ -145,7 +145,7 @@ export default function AdminLogsPage() {
               type="text"
               value={filterPersonnel}
               onChange={(e) => setFilterPersonnel(e.target.value)}
-              placeholder="Personel ID"
+              placeholder="Personel Adı veya ID"
               className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-xs text-white outline-none"
             />
 

@@ -12,6 +12,7 @@ import { useEffect, useState, useRef } from 'react';
 
 import Highlight from '@tiptap/extension-highlight'
 import Typography from '@tiptap/extension-typography'
+import Underline from '@tiptap/extension-underline'
 
 const extensions = [
   StarterKit.configure({
@@ -24,6 +25,7 @@ const extensions = [
       keepAttributes: false,
     },
   }),
+  Underline,
   Highlight,
   Typography,
   TextAlign.configure({

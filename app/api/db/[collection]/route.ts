@@ -12,7 +12,11 @@ const models: any = {
 
 function getPersonnelFromHeaders(req: NextRequest) {
   const personnelId = req.headers.get('x-personnel-id') || 'unknown';
-  const personnelName = req.headers.get('x-personnel-name') || 'Bilinmeyen';
+  const rawName = req.headers.get('x-personnel-name') || 'Bilinmeyen';
+  let personnelName = rawName;
+  try {
+    personnelName = decodeURIComponent(rawName);
+  } catch { /* ignore */ }
   return { personnelId, personnelName };
 }
 

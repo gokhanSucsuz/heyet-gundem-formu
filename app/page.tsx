@@ -52,7 +52,17 @@ export default function FormsPage() {
         decisionDate: today,
         createdAt: Date.now(),
         updatedAt: Date.now(),
-        signatureSnapshots: []
+        signatureSnapshots: [],
+        items: (templateForm.items || []).map(item => ({
+          ...item,
+          id: uuidv4(),
+          table: item.table ? {
+            ...item.table,
+            columns: [...item.table.columns],
+            rows: item.table.rows.map(r => [...r])
+          } : undefined,
+          subItems: item.subItems?.map(sub => ({ ...sub, id: uuidv4() }))
+        }))
       };
       await db.forms.add(newForm);
       toast.success('Şablon kullanılarak yeni form oluşturuldu.');
@@ -133,7 +143,17 @@ export default function FormsPage() {
           decisionDate: new Date().toISOString().split('T')[0],
           createdAt: Date.now(),
           updatedAt: Date.now(),
-          signatureSnapshots: []
+          signatureSnapshots: [],
+          items: (formToCopy.items || []).map((item: any) => ({
+            ...item,
+            id: uuidv4(),
+            table: item.table ? {
+              ...item.table,
+              columns: [...item.table.columns],
+              rows: item.table.rows.map((r: string[]) => [...r])
+            } : undefined,
+            subItems: item.subItems?.map((sub: any) => ({ ...sub, id: uuidv4() }))
+          }))
         };
         await db.forms.add(newForm);
         toast.success('Form kopyalandı.');
@@ -218,15 +238,19 @@ export default function FormsPage() {
           </div>
           <h3 className="text-lg font-bold text-slate-900 mb-2 uppercase">Henüz form bulunmuyor</h3>
           <p className="text-slate-500 max-w-md mx-auto mb-6 text-sm">
-            Yeni bir karar veya gündem formu oluşturarak başlayabilirsiniz.
+            {isAdmin
+              ? 'Yeni bir karar veya gündem formu oluşturarak başlayabilirsiniz.'
+              : 'Yönetici tarafından yeni bir karar veya gündem formu oluşturulduğunda burada listelenecektir.'}
           </p>
-          <button
-            onClick={createForm}
-            className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded text-sm font-bold transition-colors mx-auto shadow-sm"
-          >
-            <Plus className="w-5 h-5" />
-            İLK FORMU OLUŞTUR
-          </button>
+          {isAdmin && (
+            <button
+              onClick={createForm}
+              className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded text-sm font-bold transition-colors mx-auto shadow-sm"
+            >
+              <Plus className="w-5 h-5" />
+              İLK FORMU OLUŞTUR
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

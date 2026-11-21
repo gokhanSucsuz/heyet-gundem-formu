@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 async function getGoogleLoginSetting() {
   try {
     await dbConnect();
-    const settings = await SettingsModel.findOne({});
+    const settings = (await SettingsModel.findById('default')) || (await SettingsModel.findOne({}));
     if (!settings) return false; // Default to false (closed)
     const decrypted = decryptData(settings.payload);
     return decrypted?.isGoogleLoginEnabled ?? false;

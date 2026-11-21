@@ -17,7 +17,8 @@ import {
   findIncomeColumnIndex, 
   sortAndProcessTableByIncome, 
   parseTurkishCurrency, 
-  isTableMuhtaclikActive 
+  isTableMuhtaclikActive,
+  isSiraColumn
 } from '@/components/ExcelTableImportModal';
 import { 
   Save, Printer, ArrowLeft, Plus, Trash2, 
@@ -31,13 +32,8 @@ import Link from 'next/link';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { DebouncedInput } from '@/components/DebouncedInput';
 
-const isSiraColumn = (name: string) => {
-  const n = name.toLowerCase().trim();
-  return n === 'sıra' || n === 'sıra no' || n === 'sira' || n === 'sira no' || n === 'no';
-};
-
 function PrintPreview({ form, members, settings }: { form: OfficialForm, members: Member[], settings: any }) {
-  const activeLayout = settings?.layout || form.layout;
+  const activeLayout = { ...(form.layout || {}), ...(settings?.layout || {}) };
   const selectedMembers = members.filter(m => form.signatureMembers.includes(m.id));
   
   const tablePaddings = {
@@ -208,7 +204,7 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
           
           <div className="flex-1 px-4 mt-2" style={{ 
             fontSize: activeLayout?.fontSizeTitle ? `${activeLayout?.fontSizeTitle}px` : '12px',
-            lineHeight: activeLayout?.headerLineSpacing || 'normal'
+            lineHeight: form.layout?.headerLineSpacing || activeLayout?.headerLineSpacing || 'normal'
           }}>
             {form.headerTop.includes('<') ? (
                <div className="rich-text-preview header-rich-text" dangerouslySetInnerHTML={{ __html: form.headerTop }} />
@@ -333,7 +329,7 @@ function PrintPreview({ form, members, settings }: { form: OfficialForm, members
         @page { 
           size: A4; 
           margin: ${marginY}mm ${marginX}mm; 
-          ${form.layout?.showPageNumbers ? `
+          ${activeLayout?.showPageNumbers !== false ? `
           @bottom-center {
             content: "Sayfa " counter(page);
             font-family: sans-serif;
@@ -490,21 +486,30 @@ export default function FormEditorPage() {
         try {
           const draftData = JSON.parse(draft);
           if (draftData.updatedAt > (form.updatedAt || 0)) {
-            setLocalForm(draftData);
+            setLocalForm(prev => {
+              if (prev && prev.id === id && prev.updatedAt >= draftData.updatedAt) return prev;
+              return draftData;
+            });
             setIsDirty(true);
             return;
           }
         } catch (e) {}
       }
-      setLocalForm(form);
+      setLocalForm(prev => {
+        // Prevent 3s background polling from overwriting newer local edits
+        if (prev && prev.id === form.id && (prev.updatedAt || 0) >= (form.updatedAt || 0)) {
+          return prev;
+        }
+        return form;
+      });
     }
   }, [form, id]);
 
   useEffect(() => {
     if (!localForm || isSaving) return;
     
-    const formattedDate = localForm.decisionDate ? new Date(localForm.decisionDate).toLocaleDateString('tr-TR') : '';
-    const newHeader = `${formattedDate}${formattedDate && localForm.decisionNo ? ' - ' : ''}${localForm.decisionNo || ''}`;
+    const formattedDate = localForm.decisionDate ? new Date(localForm.decisionDate).toLocaleDateString('tr-TR') : '.../.../20...';
+    const newHeader = `${formattedDate} - Karar No: ${localForm.decisionNo || '...'}`;
     
     if (newHeader && localForm.headerLine4 !== newHeader && !localForm.isLocked) {
       const updated = { ...localForm, headerLine4: newHeader, updatedAt: Date.now() };
@@ -527,8 +532,10 @@ export default function FormEditorPage() {
     return diffDays <= 2;
   };
 
+  const canEditForm = !isSaving && (!localForm.isLocked || localForm.isPostponed) && (localForm.isActive !== false || isAdmin);
+
   const updateForm = (updates: Partial<OfficialForm>) => {
-    if (isSaving || (localForm.isActive === false && !isAdmin)) return;
+    if (!canEditForm) return;
     const updated = { ...localForm, ...updates, updatedAt: Date.now() };
     setLocalForm(updated);
     setIsDirty(true);
@@ -916,9 +923,9 @@ export default function FormEditorPage() {
                 <DebouncedInput 
                   type="text" 
                   value={localForm.title} 
-                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                  disabled={!canEditForm}
                   onChange={(val) => updateForm({ title: val })}
-                  className={`text-sm font-bold bg-transparent border border-transparent hover:border-slate-200 focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1.5 py-0.5 text-slate-900 placeholder-slate-400 uppercase outline-none truncate w-full transition-all ${(localForm.isLocked && !localForm.isPostponed) || isSaving ? 'cursor-not-allowed opacity-70' : ''}`}
+                  className={`text-sm font-bold bg-transparent border border-transparent hover:border-slate-200 focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1.5 py-0.5 text-slate-900 placeholder-slate-400 uppercase outline-none truncate w-full transition-all ${!canEditForm ? 'cursor-not-allowed opacity-70' : ''}`}
                   placeholder="Form Başlığı Giriniz..."
                 />
               </div>
@@ -983,7 +990,7 @@ export default function FormEditorPage() {
               <>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                  disabled={!canEditForm}
                   className="px-2.5 sm:px-3 py-1.5 text-xs font-bold uppercase rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
                   title="Word (.docx) Dosyasından Gündem Maddeleri Aktar"
                 >
@@ -993,7 +1000,7 @@ export default function FormEditorPage() {
 
                 <button
                   onClick={() => setIsReorderModalOpen(true)}
-                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed) || !localForm.items?.length}
+                  disabled={!canEditForm || !localForm.items?.length}
                   className="px-2.5 sm:px-3 py-1.5 text-xs font-bold uppercase rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
                   title="Maddeleri Hızlıca Sırala"
                 >
@@ -1003,7 +1010,7 @@ export default function FormEditorPage() {
 
                 <button
                   onClick={() => addItem('numbered')}
-                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                  disabled={!canEditForm}
                   className="px-3 py-1.5 text-xs font-bold uppercase rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-xs shadow-blue-600/20 transition-all active:scale-95 disabled:opacity-50"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1012,9 +1019,9 @@ export default function FormEditorPage() {
 
                 <button
                   onClick={saveToCloud}
-                  disabled={isSaving || !isDirty}
+                  disabled={isSaving || !isDirty || !canEditForm}
                   className={`px-3.5 py-1.5 text-xs font-bold uppercase rounded-lg flex items-center gap-1.5 shadow-xs transition-all active:scale-95 ${
-                    isDirty && !isSaving
+                    isDirty && !isSaving && canEditForm
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
                       : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
                   }`}
@@ -1139,9 +1146,9 @@ export default function FormEditorPage() {
               
               <button 
                 onClick={saveToCloud}
-                disabled={isSaving || !isDirty}
+                disabled={isSaving || !isDirty || !canEditForm}
                 className={`relative flex items-center w-10 lg:w-12 h-10 lg:h-12 hover:w-28 lg:hover:w-32 rounded-xl lg:rounded-2xl font-bold text-[11px] shadow-xl transition-all duration-300 overflow-hidden group/savebtn uppercase tracking-widest ${
-                  isDirty && !isSaving 
+                  isDirty && !isSaving && canEditForm
                     ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105' 
                     : 'bg-white/80 backdrop-blur-md text-slate-400 border border-slate-200 cursor-not-allowed opacity-70'
                 }`}
@@ -1365,7 +1372,7 @@ export default function FormEditorPage() {
                         className="hidden" 
                       />
                       <button 
-                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                        disabled={!canEditForm}
                         onClick={() => fileInputRef.current?.click()} 
                         className="flex items-center gap-1 text-xs font-bold uppercase bg-blue-50 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 border border-blue-200 disabled:opacity-50"
                         title="Word (.docx) dosyasından gündem maddelerini içe aktar"
@@ -1373,7 +1380,7 @@ export default function FormEditorPage() {
                         <FileUp className="w-3 h-3" /> Word'den Aktar
                       </button>
                       <button 
-                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed) || !localForm.items?.length}
+                        disabled={!canEditForm || !localForm.items?.length}
                         onClick={() => setIsReorderModalOpen(true)} 
                         className="flex items-center gap-1 text-xs font-bold uppercase bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-300 px-3 py-1.5 rounded disabled:opacity-50 transition-colors"
                         title="Maddeleri tek ekranda sürükle-bırak ile hızlıca sırala"
@@ -1381,14 +1388,14 @@ export default function FormEditorPage() {
                         <ArrowUpDown className="w-3 h-3" /> Hızlı Sırala
                       </button>
                       <button 
-                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                        disabled={!canEditForm}
                         onClick={() => addItem('numbered')} 
                         className="flex items-center gap-1 text-xs font-bold uppercase bg-slate-100 text-slate-700 px-3 py-1.5 rounded hover:bg-slate-200 border border-slate-300 disabled:opacity-50"
                       >
                         <ListOrdered className="w-3 h-3" /> Numaralı
                       </button>
                       <button 
-                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                        disabled={!canEditForm}
                         onClick={() => addItem('bullet')} 
                         className="flex items-center gap-1 text-xs font-bold uppercase bg-slate-100 text-slate-700 px-3 py-1.5 rounded hover:bg-slate-200 border border-slate-300 disabled:opacity-50"
                       >
@@ -1412,7 +1419,7 @@ export default function FormEditorPage() {
                                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/add:opacity-100 transition-opacity z-10">
                                     <div className="h-px bg-blue-400 w-full"></div>
                                     <button 
-                                      disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                      disabled={!canEditForm}
                                       onClick={() => isSub && parentId ? addSubItemAt(parentId, idx) : addItemAt(idx)}
                                       className="absolute bg-blue-600 hover:bg-blue-700 text-white p-0.5 rounded-full shadow-md hover:scale-105 transition-all flex items-center gap-1 px-2 text-[10px] font-bold uppercase"
                                       title="Araya Madde Ekle"
@@ -1433,7 +1440,7 @@ export default function FormEditorPage() {
                                 <div className="absolute right-2 top-2 opacity-90 md:opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-opacity z-10">
                                   {!isSub && (
                                     <button 
-                                      disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                      disabled={!canEditForm}
                                       onClick={() => {
                                         let newSubItems = [...(itm.subItems || [])];
                                         newSubItems.push({ id: uuidv4(), type: 'bullet', text: '' });
@@ -1447,7 +1454,7 @@ export default function FormEditorPage() {
                                   )}
                                   {!itm.hasTable && !isSub && (
                                     <button 
-                                      disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                      disabled={!canEditForm}
                                       onClick={() => addTableToItem(itm.id)} 
                                       className="bg-white border border-slate-200 hover:border-blue-300 text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 shadow-2xs disabled:opacity-50" 
                                       title="Tablo Ekle"
@@ -1456,7 +1463,7 @@ export default function FormEditorPage() {
                                     </button>
                                   )}
                                   <button 
-                                    disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                    disabled={!canEditForm}
                                     onClick={() => {
                                       if (isSub && parentId) {
                                         const parent = localForm.items?.find(i => i.id === parentId);
@@ -1479,7 +1486,7 @@ export default function FormEditorPage() {
                                   <div className="flex flex-col items-center shrink-0 w-10 pt-1">
                                     <button
                                       type="button"
-                                      disabled={idx === 0 || isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                      disabled={idx === 0 || !canEditForm}
                                       onClick={() => moveItem(itm.id, idx - 1, parentId)}
                                       className="p-0.5 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
                                       title="Yukarı Taşı"
@@ -1492,7 +1499,7 @@ export default function FormEditorPage() {
                                       key={`itm-pos-${itm.id}-${idx}`}
                                       min={1}
                                       max={maxLen}
-                                      disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                      disabled={!canEditForm}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
                                           const val = parseInt((e.target as HTMLInputElement).value, 10);
@@ -1514,7 +1521,7 @@ export default function FormEditorPage() {
                                     />
                                     <button
                                       type="button"
-                                      disabled={idx === maxLen - 1 || isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                      disabled={idx === maxLen - 1 || !canEditForm}
                                       onClick={() => moveItem(itm.id, idx + 1, parentId)}
                                       className="p-0.5 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
                                       title="Aşağı Taşı"
@@ -1531,7 +1538,7 @@ export default function FormEditorPage() {
                                       <div className="flex-1 w-full min-w-0">
                                         <RichTextEditor 
                                           value={itm.text}
-                                          disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                          disabled={!canEditForm}
                                           onChange={(val) => {
                                             if (isSub && parentId) {
                                               const parentItem = localForm.items?.find(i => i.id === parentId);
@@ -1552,7 +1559,7 @@ export default function FormEditorPage() {
                                             type="text"
                                             value={itm.age || ''}
                                             placeholder="Yaş"
-                                            disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                            disabled={!canEditForm}
                                             onChange={(e) => {
                                               if (isSub && parentId) {
                                                 const parentItem = localForm.items?.find(i => i.id === parentId);
@@ -1570,7 +1577,7 @@ export default function FormEditorPage() {
                                         <div className="flex-1">
                                           <select
                                             value={itm.gender || ''}
-                                            disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                            disabled={!canEditForm}
                                             onChange={(e) => {
                                               const gender = e.target.value as 'male' | 'female' | '';
                                               if (isSub && parentId) {
@@ -1791,7 +1798,7 @@ export default function FormEditorPage() {
                                                 return (
                                                   <div key={cI} className={`relative group/col ${isSiraColumn(col) ? 'w-14 shrink-0' : 'flex-1 min-w-[70px]'}`}>
                                                     <input 
-                                                      disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                      disabled={!canEditForm}
                                                       className={`w-full ${isIncomeCol ? 'pr-7' : 'pr-2'} text-xs font-bold uppercase border rounded p-1.5 focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50 ${
                                                         isIncomeCol 
                                                           ? 'border-emerald-500 bg-emerald-50/40 text-emerald-950 ring-1 ring-emerald-400' 
@@ -1812,11 +1819,17 @@ export default function FormEditorPage() {
                                                     )}
                                                     {itm.table!.columns.length > 1 && (
                                                       <button 
-                                                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                        disabled={!canEditForm}
                                                         onClick={() => {
-                                                          const newCols = itm.table!.columns.filter((_, i) => i !== cI);
-                                                          const newRows = itm.table!.rows.map(r => r.filter((_, i) => i !== cI));
-                                                          updateItem(itm.id, { table: { ...itm.table!, columns: newCols, rows: newRows } });
+                                                          const currentTable = itm.table!;
+                                                          const newCols = currentTable.columns.filter((_, i) => i !== cI);
+                                                          const newRows = currentTable.rows.map(r => r.filter((_, i) => i !== cI));
+                                                          let newIncomeCol = currentTable.incomeColumnIndex;
+                                                          if (newIncomeCol !== undefined && newIncomeCol >= 0) {
+                                                            if (newIncomeCol === cI) newIncomeCol = -1;
+                                                            else if (newIncomeCol > cI) newIncomeCol = newIncomeCol - 1;
+                                                          }
+                                                          updateItem(itm.id, { table: { ...currentTable, columns: newCols, rows: newRows, incomeColumnIndex: newIncomeCol } });
                                                         }}
                                                         className="absolute right-1 top-[4px] p-1 text-red-500 hover:bg-red-50 rounded opacity-0 group-hover/col:opacity-100 transition-opacity disabled:opacity-0"
                                                         title="Sütunu Sil"
@@ -1830,11 +1843,11 @@ export default function FormEditorPage() {
                                               <div className="flex items-center gap-2 shrink-0">
                                                 <button 
                                                   type="button"
-                                                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                  disabled={!canEditForm}
                                                   onClick={() => {
                                                     const newCols = [...itm.table!.columns, `Yeni Sütun`];
                                                     const newRows = itm.table!.rows.map(r => [...r, '']);
-                                                    updateItem(itm.id, { table: { columns: newCols, rows: newRows } });
+                                                    updateItem(itm.id, { table: { ...itm.table!, columns: newCols, rows: newRows } });
                                                   }}
                                                   className="shrink-0 px-2.5 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg text-slate-700 whitespace-nowrap disabled:opacity-50 transition-all"
                                                   title="Tabloya yeni sütun ekler"
@@ -1844,7 +1857,7 @@ export default function FormEditorPage() {
 
                                                 <button 
                                                   type="button"
-                                                  disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                  disabled={!canEditForm}
                                                   onClick={() => {
                                                     const newRow = Array(itm.table!.columns.length).fill('');
                                                     const newRows = [newRow, ...itm.table!.rows.map(r => [...r])];
@@ -1893,7 +1906,7 @@ export default function FormEditorPage() {
                                                        <input 
                                                          key={cI}
                                                          data-table-cell={`${itm.id}-${rI}-${cI}`}
-                                                         readOnly={isSira || isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                         readOnly={isSira || !canEditForm}
                                                          className={`${isSira ? 'w-14 shrink-0' : 'flex-1 min-w-[70px]'} text-xs sm:text-sm border rounded-lg p-1.5 sm:p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all ${
                                                            isSira ? 'bg-slate-100 text-center text-slate-600 font-bold border-slate-200' : ''
                                                          } ${
@@ -1931,7 +1944,7 @@ export default function FormEditorPage() {
                                                                  nextInput.focus();
                                                                  nextInput.select();
                                                                }
-                                                             } else if (!isSaving && (!localForm.isLocked || localForm.isPostponed)) {
+                                                             } else if (canEditForm) {
                                                                const newRow = Array(itm.table!.columns.length).fill('');
                                                                const newRows = [...itm.table!.rows.map(r => [...r]), newRow];
                                                                const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
@@ -1962,7 +1975,7 @@ export default function FormEditorPage() {
                                                     <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity">
                                                       <button 
                                                         type="button"
-                                                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                        disabled={!canEditForm}
                                                         onClick={() => {
                                                           const newRow = Array(itm.table!.columns.length).fill('');
                                                           const newRows = itm.table!.rows.map(r => [...r]);
@@ -1993,7 +2006,7 @@ export default function FormEditorPage() {
 
                                                       <button 
                                                         type="button"
-                                                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                        disabled={!canEditForm}
                                                         onClick={() => {
                                                           const newRow = Array(itm.table!.columns.length).fill('');
                                                           const newRows = itm.table!.rows.map(r => [...r]);
@@ -2024,7 +2037,7 @@ export default function FormEditorPage() {
 
                                                       <button 
                                                         type="button"
-                                                        disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                        disabled={!canEditForm}
                                                         onClick={() => {
                                                           const newRows = itm.table!.rows.filter((_, i) => i !== rI).map(r => [...r]);
                                                           const siraIdx = itm.table!.columns.findIndex(c => isSiraColumn(c));
@@ -2047,7 +2060,7 @@ export default function FormEditorPage() {
                                             <div className="flex gap-2 items-center mt-2">
                                               <div className="w-8 shrink-0"></div>
                                               <button 
-                                                disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                                disabled={!canEditForm}
                                                 onClick={() => {
                                                   const newRow = Array(itm.table!.columns.length).fill('');
                                                   const newRows = [...itm.table!.rows.map(r => [...r]), newRow];
@@ -2084,7 +2097,7 @@ export default function FormEditorPage() {
                                         {itm.subItems.map((sItem, sIdx) => renderEditorItem(sItem as any, sIdx, true, itm.id, idx))}
                                         <div className="flex justify-start pt-1">
                                           <button 
-                                            disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                                            disabled={!canEditForm}
                                             onClick={() => {
                                               let newSubItems = [...(itm.subItems || [])];
                                               newSubItems.push({ id: uuidv4(), type: 'bullet', text: '' });
@@ -2117,7 +2130,7 @@ export default function FormEditorPage() {
                     <div className="mt-8 flex flex-col items-center gap-4 pt-4 border-t border-slate-100">
                       <div className="flex gap-2">
                         <button 
-                          disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                          disabled={!canEditForm}
                           onClick={() => {
                             const newItem: FormItem = { id: uuidv4(), type: 'numbered', text: '' };
                             updateForm({ items: [newItem, ...(localForm.items || [])] });
@@ -2128,7 +2141,7 @@ export default function FormEditorPage() {
                           <span>BAŞA EKLE</span>
                         </button>
                         <button 
-                          disabled={isSaving || (localForm.isLocked && !localForm.isPostponed)}
+                          disabled={!canEditForm}
                           onClick={() => addItem('numbered')}
                           className="flex items-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white px-6 py-2 rounded-lg font-bold transition-all shadow-sm group active:scale-95 border border-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
                         >

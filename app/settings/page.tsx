@@ -28,7 +28,10 @@ export default function SettingsPage() {
           return;
         } catch (e) { console.error('Settings draft error', e); }
       }
-      setLocalSettings({ ...settings, muhtaclikSiniri: settings.muhtaclikSiniri ?? 9358.50 });
+      setLocalSettings((prev: any) => {
+        if (prev && isDirty) return prev;
+        return { ...settings, muhtaclikSiniri: settings.muhtaclikSiniri ?? 9358.50 };
+      });
     } else {
       // Initialize with requested defaults
       setLocalSettings({

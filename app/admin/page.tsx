@@ -22,15 +22,15 @@ export default function AdminPage() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [changeError, setChangeError] = useState('');
 
-  // Settings
-  const settingsArray = useLiveQuery(() => db.settings.toArray());
-  const globalSettings = settingsArray?.[0] || { id: 'global', isGoogleLoginEnabled: false };
+  // Settings - use 'default' to stay consistent with /settings and /login
+  const defaultSettings = useLiveQuery(() => db.settings.get('default'));
+  const globalSettings = defaultSettings || { id: 'default', isGoogleLoginEnabled: false };
 
   const toggleGoogleAuth = async () => {
     try {
       await db.settings.put({
         ...globalSettings,
-        id: globalSettings.id || 'global',
+        id: 'default',
         isGoogleLoginEnabled: !globalSettings.isGoogleLoginEnabled
       });
     } catch (e) {

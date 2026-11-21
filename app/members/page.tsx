@@ -29,9 +29,12 @@ export default function MembersPage() {
           return;
         } catch (e) { console.error('Members draft error', e); }
       }
-      setLocalMembers(members);
+      setLocalMembers(prev => {
+        if (prev.length > 0 && isDirty) return prev;
+        return members;
+      });
     }
-  }, [members]);
+  }, [members, isDirty]);
 
   const updateLocalAndDraft = (newList: Member[]) => {
     setLocalMembers(newList);

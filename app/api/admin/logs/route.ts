@@ -20,9 +20,12 @@ export async function GET(req: NextRequest) {
     const query: any = {};
 
     if (personnelId) {
+      const escaped = personnelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escaped, 'i');
       query.$or = [
         { personnelId: personnelId },
-        { resourceId: personnelId }
+        { resourceId: personnelId },
+        { personnelName: regex }
       ];
     }
     if (action) query.action = action;
@@ -30,7 +33,11 @@ export async function GET(req: NextRequest) {
     if (startDate || endDate) {
       query.timestamp = {};
       if (startDate) query.timestamp.$gte = new Date(startDate);
-      if (endDate) query.timestamp.$lte = new Date(endDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.timestamp.$lte = end;
+      }
     }
 
     const total = await AuditLogModel.countDocuments(query);

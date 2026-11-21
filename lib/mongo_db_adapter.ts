@@ -132,20 +132,37 @@ class MongoTable<T extends { id: string }> {
   }
 
   async add(data: T, silent = false): Promise<string> {
-    await fetch(`/api/db/${this.collection}${silent ? '?silent=true' : ''}`, {
+    const res = await fetch(`/api/db/${this.collection}${silent ? '?silent=true' : ''}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getPersonnelHeaders() },
       body: JSON.stringify(data)
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || `Add failed (${this.collection})`);
+    }
+    window.dispatchEvent(new CustomEvent(`db-update-${this.collection}`));
     return data.id;
   }
 
   async put(data: T, silent = false): Promise<string> {
-    await fetch(`/api/db/${this.collection}${silent ? '?silent=true' : ''}`, {
+    // Cancel any pending debounced save for this ID so it cannot overwrite manual put()
+    const pending = this._saveQueue.get(data.id);
+    if (pending) {
+      clearTimeout(pending.timer);
+      this._saveQueue.delete(data.id);
+    }
+
+    const res = await fetch(`/api/db/${this.collection}${silent ? '?silent=true' : ''}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getPersonnelHeaders() },
       body: JSON.stringify(data)
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || `Put failed (${this.collection})`);
+    }
+    window.dispatchEvent(new CustomEvent(`db-update-${this.collection}`));
     return data.id;
   }
 

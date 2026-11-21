@@ -22,7 +22,7 @@ export const authOptions: NextAuthOptions = {
         let isGoogleLoginEnabled = false; // Default closed
         try {
           await dbConnect();
-          const settings = await SettingsModel.findOne({});
+          const settings = (await SettingsModel.findById('default')) || (await SettingsModel.findOne({}));
           if (settings) {
             const decrypted = decryptData(settings.payload);
             isGoogleLoginEnabled = decrypted?.isGoogleLoginEnabled ?? false;
