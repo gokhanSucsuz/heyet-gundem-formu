@@ -1083,20 +1083,18 @@ export default function FormEditorPage() {
                 <Edit3 className="w-3.5 h-3.5" />
                 <span>Word Düzeni</span>
               </button>
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('preview')}
-                  className={`px-2.5 sm:px-3 py-1 text-[11px] font-bold uppercase transition-all flex items-center gap-1.5 rounded-md ${
-                    activeTab === 'preview' 
-                      ? 'bg-blue-600 text-white shadow-xs' 
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Baskı / Sırala</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setActiveTab('preview')}
+                className={`px-2.5 sm:px-3 py-1 text-[11px] font-bold uppercase transition-all flex items-center gap-1.5 rounded-md ${
+                  activeTab === 'preview' 
+                    ? 'bg-blue-600 text-white shadow-xs' 
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>{isAdmin ? 'Baskı / Sırala' : 'Önizleme'}</span>
+              </button>
             </div>
 
             {/* Right: Save, Lock & Print */}
@@ -2616,62 +2614,64 @@ export default function FormEditorPage() {
           ) : (
             /* ==================== PRINT PREVIEW & AGE/GENDER AUTO-SORT TAB ==================== */
             <div className="w-full flex flex-col items-center">
-              <div className="w-full max-w-[210mm] mb-4">
-                <div className="bg-white p-3.5 rounded-xl border border-slate-300 shadow-sm flex flex-col gap-3">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <span className="text-xs font-bold text-slate-700 uppercase tracking-tight">Baskı Öncesi Otomatik Sıralama (Yaş / Cinsiyet)</span>
-                    <button
-                      type="button"
-                      onClick={() => setSortOrder('none')}
-                      className="text-[11px] font-bold text-red-600 hover:underline uppercase"
-                    >
-                      Sıralamayı Sıfırla
-                    </button>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase">1. Cinsiyet Önceliği</span>
-                      <div className="flex bg-slate-100 p-1 rounded-lg">
-                        <button 
-                          type="button"
-                          onClick={() => setGenderPriority('female')}
-                          className={`flex-1 px-2.5 py-1.5 text-[11px] font-bold rounded-md transition-all ${genderPriority === 'female' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
-                        >
-                          ÖNCE KADINLAR
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => setGenderPriority('male')}
-                          className={`flex-1 px-2.5 py-1.5 text-[11px] font-bold rounded-md transition-all ${genderPriority === 'male' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
-                        >
-                          ÖNCE ERKEKLER
-                        </button>
-                      </div>
+              {isAdmin && (
+                <div className="w-full max-w-[210mm] mb-4">
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-300 shadow-sm flex flex-col gap-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-tight">Baskı Öncesi Otomatik Sıralama (Yaş / Cinsiyet)</span>
+                      <button
+                        type="button"
+                        onClick={() => setSortOrder('none')}
+                        className="text-[11px] font-bold text-red-600 hover:underline uppercase"
+                      >
+                        Sıralamayı Sıfırla
+                      </button>
                     </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">1. Cinsiyet Önceliği</span>
+                        <div className="flex bg-slate-100 p-1 rounded-lg">
+                          <button 
+                            type="button"
+                            onClick={() => setGenderPriority('female')}
+                            className={`flex-1 px-2.5 py-1.5 text-[11px] font-bold rounded-md transition-all ${genderPriority === 'female' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+                          >
+                            ÖNCE KADINLAR
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => setGenderPriority('male')}
+                            className={`flex-1 px-2.5 py-1.5 text-[11px] font-bold rounded-md transition-all ${genderPriority === 'male' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+                          >
+                            ÖNCE ERKEKLER
+                          </button>
+                        </div>
+                      </div>
 
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase">2. Yaş Sıralaması</span>
-                      <div className="flex bg-slate-100 p-1 rounded-lg">
-                        <button 
-                          type="button"
-                          onClick={() => setSortOrder('asc')}
-                          className={`flex-1 px-2.5 py-1.5 text-[11px] font-bold rounded-md transition-all ${sortOrder === 'asc' ? 'bg-blue-700 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
-                        >
-                          KÜÇÜKTEN BÜYÜĞE
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => setSortOrder('desc')}
-                          className={`flex-1 px-2.5 py-1.5 text-[11px] font-bold rounded-md transition-all ${sortOrder === 'desc' ? 'bg-blue-700 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
-                        >
-                          BÜYÜKTEN KÜÇÜĞE
-                        </button>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">2. Yaş Sıralaması</span>
+                        <div className="flex bg-slate-100 p-1 rounded-lg">
+                          <button 
+                            type="button"
+                            onClick={() => setSortOrder('asc')}
+                            className={`flex-1 px-2.5 py-1.5 text-[11px] font-bold rounded-md transition-all ${sortOrder === 'asc' ? 'bg-blue-700 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+                          >
+                            KÜÇÜKTEN BÜYÜĞE
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => setSortOrder('desc')}
+                            className={`flex-1 px-2.5 py-1.5 text-[11px] font-bold rounded-md transition-all ${sortOrder === 'desc' ? 'bg-blue-700 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+                          >
+                            BÜYÜKTEN KÜÇÜĞE
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="w-full overflow-x-auto flex justify-center pb-10">
                 <div ref={printRef} className="a4-page shrink-0">
