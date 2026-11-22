@@ -202,6 +202,78 @@ export function sortAndProcessTableByIncome(
   return { columns, rows: finalRows, incomeColIdx };
 }
 
+export function sortTableRowsByColumn(
+  columns: string[],
+  rows: string[][],
+  colIdx: number,
+  direction: 'asc' | 'desc',
+  keepOverLimitAtBottom = true
+): string[][] {
+  if (colIdx < 0 || colIdx >= columns.length || rows.length <= 1) {
+    return rows;
+  }
+
+  const compareCells = (valA: string, valB: string): number => {
+    const sA = (valA ?? '').toString().trim();
+    const sB = (valB ?? '').toString().trim();
+
+    // Boş hücreler her zaman en sona
+    if (!sA && !sB) return 0;
+    if (!sA) return 1;
+    if (!sB) return -1;
+
+    // Para birimi veya sayısal değer kontrolü
+    const numA = parseTurkishCurrency(sA);
+    const numB = parseTurkishCurrency(sB);
+
+    if (numA !== null && numB !== null) {
+      if (numA !== numB) {
+        return direction === 'asc' ? numA - numB : numB - numA;
+      }
+      return 0;
+    }
+
+    // Türkçe alfabetik / doğal sayı sıralaması
+    const cmp = sA.localeCompare(sB, 'tr', { numeric: true, sensitivity: 'base' });
+    return direction === 'asc' ? cmp : -cmp;
+  };
+
+  const clonedRows = rows.map(r => {
+    const copy = [...r];
+    while (copy.length < columns.length) copy.push('');
+    return copy;
+  });
+
+  let sortedRows: string[][] = [];
+
+  if (keepOverLimitAtBottom) {
+    const normalRows: string[][] = [];
+    const overLimitRows: string[][] = [];
+    clonedRows.forEach(r => {
+      if (isOverLimitRow(r)) {
+        overLimitRows.push(r);
+      } else {
+        normalRows.push(r);
+      }
+    });
+    normalRows.sort((a, b) => compareCells(a[colIdx], b[colIdx]));
+    overLimitRows.sort((a, b) => compareCells(a[colIdx], b[colIdx]));
+    sortedRows = [...normalRows, ...overLimitRows];
+  } else {
+    sortedRows = clonedRows.sort((a, b) => compareCells(a[colIdx], b[colIdx]));
+  }
+
+  // SIRA NO sütunu varsa 1..N olarak otomatik güncelle
+  const siraIdx = columns.findIndex(col => isSiraColumn(col));
+  if (siraIdx >= 0) {
+    sortedRows.forEach((r, idx) => {
+      r[siraIdx] = (idx + 1).toString();
+    });
+  }
+
+  return sortedRows;
+}
+
 interface ExcelTableImportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -216,6 +288,8 @@ interface ExcelTableImportModalProps {
     rows: string[][]; 
     enableMuhtaclikCheck?: boolean;
     incomeColumnIndex?: number;
+    sortColumnIndex?: number;
+    sortDirection?: 'asc' | 'desc';
   }) => void;
 }
 
@@ -242,12 +316,18 @@ export function ExcelTableImportModal({
   // Karar sütunu ekleme/temizleme
   const [manageDecisionCol, setManageDecisionCol] = useState<boolean>(true);
 
+  // Özel sütun sıralama (İsteğe bağlı Artan/Azalan)
+  const [customSortColIdx, setCustomSortColIdx] = useState<number>(-1);
+  const [customSortDir, setCustomSortDir] = useState<'asc' | 'desc'>('asc');
+
   // Otomatik tespit
   useEffect(() => {
     if (isOpen && rawColumns.length > 0) {
       setMuhtaclikSiniri(defaultMuhtaclikSiniri || 9358.50);
       setEnableLimitCheck(initialEnableLimitCheck);
       setManageDecisionCol(true);
+      setCustomSortColIdx(-1);
+      setCustomSortDir('asc');
 
       if (initialIncomeColumnIndex !== undefined && initialIncomeColumnIndex >= 0 && initialIncomeColumnIndex < rawColumns.length) {
         setIncomeColIndex(initialIncomeColumnIndex);
@@ -344,9 +424,14 @@ export function ExcelTableImportModal({
     }
 
     // Sıralama: kabul edilenler -> string (metin) olanlar -> reddedilenler (sınır üstü)
-    const allRows = enableLimitCheck 
+    let allRows = enableLimitCheck 
       ? [...acceptedList.map(item => item.row), ...stringList, ...rejectedList] 
       : acceptedList.map(item => item.row);
+
+    // Eğer kullanıcı özel bir sütuna göre sıralama seçtiyse uygula
+    if (customSortColIdx >= 0 && customSortColIdx < finalColumns.length) {
+      allRows = sortTableRowsByColumn(finalColumns, allRows, customSortColIdx, customSortDir, enableLimitCheck);
+    }
 
     // SIRA NO sütununu 1..N olarak yeniden numaralandır
     const siraIdx = finalColumns.findIndex(col => isSiraColumn(col));
@@ -363,7 +448,7 @@ export function ExcelTableImportModal({
       rejectedCount: rejectedList.length,
       previewRows: allRows.slice(0, 8)
     };
-  }, [rawColumns, rawRows, enableLimitCheck, muhtaclikSiniri, incomeColIndex, manageDecisionCol, existingDecisionColIdx]);
+  }, [rawColumns, rawRows, enableLimitCheck, muhtaclikSiniri, incomeColIndex, manageDecisionCol, existingDecisionColIdx, customSortColIdx, customSortDir]);
 
   if (!isOpen) return null;
 
@@ -372,7 +457,9 @@ export function ExcelTableImportModal({
       columns: processedData.columns,
       rows: processedData.rows,
       enableMuhtaclikCheck: enableLimitCheck,
-      incomeColumnIndex: enableLimitCheck ? incomeColIndex : undefined
+      incomeColumnIndex: enableLimitCheck ? incomeColIndex : undefined,
+      sortColumnIndex: customSortColIdx >= 0 ? customSortColIdx : (enableLimitCheck && incomeColIndex >= 0 ? incomeColIndex : undefined),
+      sortDirection: customSortColIdx >= 0 ? customSortDir : (enableLimitCheck && incomeColIndex >= 0 ? 'asc' : undefined)
     });
     onClose();
   };
@@ -558,15 +645,68 @@ export function ExcelTableImportModal({
             </div>
           )}
 
-          {/* Tablo Canlı Önizleme */}
-          <div className="space-y-2">
+          {/* Tablo Canlı Önizleme ve Sütun Sıralama */}
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 border border-slate-200/80 rounded-xl p-2.5">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
+                <ArrowDownUp className="w-3.5 h-3.5 text-blue-700" />
+                <span>Sütuna Göre Sırala:</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                <select
+                  value={customSortColIdx}
+                  onChange={(e) => setCustomSortColIdx(Number(e.target.value))}
+                  className="text-xs font-bold text-slate-800 border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:ring-1 focus:ring-blue-600"
+                >
+                  <option value={-1}>
+                    {enableLimitCheck ? '-- Varsayılan (Gelire Göre Artan) --' : '-- Orijinal Excel Sırası --'}
+                  </option>
+                  {processedData.columns.map((col, cIdx) => {
+                    if (isSiraColumn(col)) return null;
+                    return (
+                      <option key={cIdx} value={cIdx}>
+                        Sütun {cIdx + 1}: {col || '(Başlıksız)'}
+                      </option>
+                    );
+                  })}
+                </select>
+
+                <div className="inline-flex bg-slate-200/80 p-0.5 rounded-lg">
+                  <button
+                    type="button"
+                    disabled={customSortColIdx < 0}
+                    onClick={() => setCustomSortDir('asc')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all disabled:opacity-40 ${
+                      customSortDir === 'asc' && customSortColIdx >= 0
+                        ? 'bg-blue-700 text-white shadow-2xs'
+                        : 'text-slate-700 hover:text-slate-900'
+                    }`}
+                  >
+                    ↑ Artan (A→Z / 0→9)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={customSortColIdx < 0}
+                    onClick={() => setCustomSortDir('desc')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all disabled:opacity-40 ${
+                      customSortDir === 'desc' && customSortColIdx >= 0
+                        ? 'bg-blue-700 text-white shadow-2xs'
+                        : 'text-slate-700 hover:text-slate-900'
+                    }`}
+                  >
+                    ↓ Azalan (Z→A / 9→0)
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase">
               <span className="flex items-center gap-1.5">
-                <ArrowDownUp className="w-3.5 h-3.5" />
                 Tablo Önizlemesi ({processedData.rows.length} Satır)
               </span>
-              <span className="text-[10px] text-slate-400 font-normal lowercase">
-                (Gelire göre artan sıralı; koyu ve kalın satırlar muhtaçlık sınırını aşanlardır)
+              <span className="text-[10px] text-slate-400 font-normal">
+                (Tablo başlıklarına tıklayarak da Artan / Azalan sıralayabilirsiniz)
               </span>
             </div>
 
@@ -574,11 +714,37 @@ export function ExcelTableImportModal({
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="bg-slate-100 sticky top-0 border-b border-slate-200 z-10">
                   <tr>
-                    {processedData.columns.map((col, cIdx) => (
-                      <th key={cIdx} className="p-2 font-bold text-slate-700 uppercase whitespace-nowrap text-[11px] border-r border-slate-200 last:border-r-0">
-                        {col}
-                      </th>
-                    ))}
+                    {processedData.columns.map((col, cIdx) => {
+                      const isSira = isSiraColumn(col);
+                      const isSorted = customSortColIdx === cIdx;
+                      return (
+                        <th
+                          key={cIdx}
+                          onClick={() => {
+                            if (isSira) return;
+                            if (customSortColIdx === cIdx) {
+                              setCustomSortDir(customSortDir === 'asc' ? 'desc' : 'asc');
+                            } else {
+                              setCustomSortColIdx(cIdx);
+                              setCustomSortDir('asc');
+                            }
+                          }}
+                          className={`p-2 font-bold text-slate-700 uppercase whitespace-nowrap text-[11px] border-r border-slate-200 last:border-r-0 ${
+                            !isSira ? 'cursor-pointer hover:bg-blue-50 select-none' : ''
+                          } ${isSorted ? 'bg-blue-100/80 text-blue-900' : ''}`}
+                          title={!isSira ? `"${col}" sütununa göre sıralamak için tıklayın` : ''}
+                        >
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span>{col}</span>
+                            {!isSira && (
+                              <span className="text-[10px] text-blue-700 font-black">
+                                {isSorted ? (customSortDir === 'asc' ? '↑' : '↓') : '⇅'}
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">

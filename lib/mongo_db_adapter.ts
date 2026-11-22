@@ -28,6 +28,8 @@ export interface TableConfig {
   showBorders?: boolean;
   enableMuhtaclikCheck?: boolean;
   incomeColumnIndex?: number;
+  sortColumnIndex?: number;
+  sortDirection?: 'asc' | 'desc';
 }
 
 export interface FormSubItem {

@@ -15,6 +15,7 @@ import {
   isStringIncomeRow, 
   findIncomeColumnIndex, 
   sortAndProcessTableByIncome, 
+  sortTableRowsByColumn,
   isTableMuhtaclikActive,
   isSiraColumn
 } from '@/components/ExcelTableImportModal';
@@ -808,6 +809,8 @@ export default function FormEditorPage() {
     rows: string[][]; 
     enableMuhtaclikCheck?: boolean;
     incomeColumnIndex?: number;
+    sortColumnIndex?: number;
+    sortDirection?: 'asc' | 'desc';
   }) => {
     if (!excelImportState.itemId) return;
     const currentTable = localForm?.items.find(i => i.id === excelImportState.itemId)?.table;
@@ -819,7 +822,9 @@ export default function FormEditorPage() {
         columns: table.columns, 
         rows: table.rows,
         enableMuhtaclikCheck: isMuhtaclik,
-        incomeColumnIndex: table.incomeColumnIndex ?? currentTable?.incomeColumnIndex
+        incomeColumnIndex: table.incomeColumnIndex ?? currentTable?.incomeColumnIndex,
+        sortColumnIndex: table.sortColumnIndex,
+        sortDirection: table.sortDirection
       } 
     });
     toast.success(`Excel tablosu ${table.rows.length} satır ile başarıyla yüklendi.`);
@@ -882,6 +887,35 @@ export default function FormEditorPage() {
   const removeTableFromItem = (itemId: string) => {
     updateItem(itemId, { hasTable: false, table: undefined });
     if (openTablePanelId === itemId) setOpenTablePanelId(null);
+  };
+
+  const handleSortTableByColumn = (
+    itemId: string,
+    table: NonNullable<FormItem['table']>,
+    colIdx: number,
+    explicitDirection?: 'asc' | 'desc'
+  ) => {
+    if (colIdx < 0 || colIdx >= table.columns.length) return;
+    const nextDir: 'asc' | 'desc' = explicitDirection
+      ? explicitDirection
+      : table.sortColumnIndex === colIdx && table.sortDirection === 'asc'
+      ? 'desc'
+      : 'asc';
+
+    const keepOverAtBottom = isTableMuhtaclikActive(table);
+    const sortedRows = sortTableRowsByColumn(table.columns, table.rows, colIdx, nextDir, keepOverAtBottom);
+
+    updateItem(itemId, {
+      table: {
+        ...table,
+        rows: sortedRows,
+        sortColumnIndex: colIdx,
+        sortDirection: nextDir,
+      }
+    });
+
+    const colName = table.columns[colIdx] || `Sütun ${colIdx + 1}`;
+    toast.success(`Tablo "${colName}" sütununa göre ${nextDir === 'asc' ? 'ARTAN (A→Z / Küçükten Büyüğe)' : 'AZALAN (Z→A / Büyükten Küçüğe)'} sıralandı.`);
   };
 
   const exportExcelFromTable = async (table: NonNullable<FormItem['table']>, itemIndex: number) => {
@@ -1890,7 +1924,9 @@ export default function FormEditorPage() {
                                                   ...currentTable,
                                                   columns: result.columns,
                                                   rows: result.rows,
-                                                  incomeColumnIndex: newColIdx
+                                                  incomeColumnIndex: newColIdx,
+                                                  sortColumnIndex: newColIdx,
+                                                  sortDirection: 'asc'
                                                 }
                                               });
                                               toast.success(`Gelir sütunu: ${currentTable.columns[newColIdx] || `Sütun ${newColIdx + 1}`}`);
@@ -1913,6 +1949,81 @@ export default function FormEditorPage() {
                                           ))}
                                         </select>
                                       )}
+
+                                      {/* Sütuna Göre Sıralama Kontrolü (Artan / Azalan) */}
+                                      <div className="inline-flex items-center gap-1 bg-white border border-slate-300 rounded px-1.5 py-0.5">
+                                        <ArrowUpDown className="w-3 h-3 text-blue-700 shrink-0" />
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase hidden sm:inline">Sırala:</span>
+                                        <select
+                                          value={
+                                            item.table.sortColumnIndex !== undefined &&
+                                            item.table.sortColumnIndex >= 0 &&
+                                            item.table.sortColumnIndex < item.table.columns.length
+                                              ? item.table.sortColumnIndex
+                                              : -1
+                                          }
+                                          onChange={(e) => {
+                                            const colIdx = Number(e.target.value);
+                                            if (colIdx >= 0) {
+                                              handleSortTableByColumn(item.id, item.table!, colIdx, item.table?.sortDirection || 'asc');
+                                            }
+                                          }}
+                                          className="text-[11px] font-bold text-slate-800 bg-transparent outline-none max-w-[150px]"
+                                          title="Sıralanacak Sütunu Seçin"
+                                        >
+                                          <option value={-1}>-- Sütun Seç --</option>
+                                          {item.table.columns.map((col, cIdx) => {
+                                            if (isSiraColumn(col)) return null;
+                                            return (
+                                              <option key={cIdx} value={cIdx}>
+                                                {col || `Sütun ${cIdx + 1}`}
+                                              </option>
+                                            );
+                                          })}
+                                        </select>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const firstSortable = item.table!.columns.findIndex(c => !isSiraColumn(c));
+                                            const targetCol =
+                                              item.table?.sortColumnIndex !== undefined && item.table.sortColumnIndex >= 0
+                                                ? item.table.sortColumnIndex
+                                                : firstSortable >= 0 ? firstSortable : 0;
+                                            handleSortTableByColumn(item.id, item.table!, targetCol, 'asc');
+                                          }}
+                                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5 transition-colors ${
+                                            item.table.sortDirection === 'asc' && item.table.sortColumnIndex !== undefined && item.table.sortColumnIndex >= 0
+                                              ? 'bg-blue-700 text-white'
+                                              : 'bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700'
+                                          }`}
+                                          title="Seçili sütuna göre Artan (A→Z / Küçükten Büyüğe) sırala"
+                                        >
+                                          <ArrowUp className="w-2.5 h-2.5" />
+                                          <span>Artan</span>
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const firstSortable = item.table!.columns.findIndex(c => !isSiraColumn(c));
+                                            const targetCol =
+                                              item.table?.sortColumnIndex !== undefined && item.table.sortColumnIndex >= 0
+                                                ? item.table.sortColumnIndex
+                                                : firstSortable >= 0 ? firstSortable : 0;
+                                            handleSortTableByColumn(item.id, item.table!, targetCol, 'desc');
+                                          }}
+                                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5 transition-colors ${
+                                            item.table.sortDirection === 'desc' && item.table.sortColumnIndex !== undefined && item.table.sortColumnIndex >= 0
+                                              ? 'bg-blue-700 text-white'
+                                              : 'bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700'
+                                          }`}
+                                          title="Seçili sütuna göre Azalan (Z→A / Büyükten Küçüğe) sırala"
+                                        >
+                                          <ArrowDown className="w-2.5 h-2.5" />
+                                          <span>Azalan</span>
+                                        </button>
+                                      </div>
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-1.5">
@@ -1981,27 +2092,51 @@ export default function FormEditorPage() {
                                         {item.table.columns.map((col, cI) => {
                                           const isSira = isSiraColumn(col);
                                           const isIncomeCol = isTableMuhtaclikActive(item.table) && item.table?.incomeColumnIndex === cI;
+                                          const isSortedCol = item.table?.sortColumnIndex === cI;
+                                          const sortDir = item.table?.sortDirection;
                                           return (
                                             <th
                                               key={cI}
                                               className={`border border-black bg-slate-100 font-bold uppercase p-1 relative group/th ${
-                                                isSira ? 'w-12 text-center' : 'min-w-[85px]'
-                                              } ${isIncomeCol ? 'bg-emerald-50/90' : ''}`}
+                                                isSira ? 'w-12 text-center' : 'min-w-[95px]'
+                                              } ${isIncomeCol ? 'bg-emerald-50/90' : ''} ${isSortedCol ? 'bg-blue-50/80' : ''}`}
                                             >
-                                              <input
-                                                type="text"
-                                                disabled={!canEditForm}
-                                                value={col}
-                                                onChange={(e) => {
-                                                  const newCols = [...item.table!.columns];
-                                                  newCols[cI] = e.target.value;
-                                                  updateItem(item.id, { table: { ...item.table!, columns: newCols } });
-                                                }}
-                                                className={`w-full bg-transparent font-bold uppercase outline-none focus:bg-white px-1 rounded ${
-                                                  isSira ? 'text-center' : 'text-left'
-                                                }`}
-                                                placeholder={`SÜTUN ${cI + 1}`}
-                                              />
+                                              <div className="flex items-center gap-0.5">
+                                                <input
+                                                  type="text"
+                                                  disabled={!canEditForm}
+                                                  value={col}
+                                                  onChange={(e) => {
+                                                    const newCols = [...item.table!.columns];
+                                                    newCols[cI] = e.target.value;
+                                                    updateItem(item.id, { table: { ...item.table!, columns: newCols } });
+                                                  }}
+                                                  className={`w-full bg-transparent font-bold uppercase outline-none focus:bg-white px-1 rounded ${
+                                                    isSira ? 'text-center' : 'text-left'
+                                                  }`}
+                                                  placeholder={`SÜTUN ${cI + 1}`}
+                                                />
+                                                {canEditForm && !isSira && (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleSortTableByColumn(item.id, item.table!, cI)}
+                                                    className={`p-0.5 rounded shrink-0 transition-colors ${
+                                                      isSortedCol
+                                                        ? 'bg-blue-700 text-white'
+                                                        : 'text-slate-400 hover:text-blue-700 hover:bg-blue-100/70'
+                                                    }`}
+                                                    title={`"${col || `Sütun ${cI + 1}`}" sütununa göre ${
+                                                      isSortedCol && sortDir === 'asc' ? 'Azalan (Z→A / Büyükten Küçüğe)' : 'Artan (A→Z / Küçükten Büyüğe)'
+                                                    } sırala`}
+                                                  >
+                                                    {isSortedCol ? (
+                                                      sortDir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                                                    ) : (
+                                                      <ArrowUpDown className="w-3 h-3" />
+                                                    )}
+                                                  </button>
+                                                )}
+                                              </div>
                                               {canEditForm && item.table!.columns.length > 1 && (
                                                 <button
                                                   type="button"
@@ -2014,8 +2149,13 @@ export default function FormEditorPage() {
                                                       if (newIncomeCol === cI) newIncomeCol = -1;
                                                       else if (newIncomeCol > cI) newIncomeCol = newIncomeCol - 1;
                                                     }
+                                                    let newSortCol = currentTable.sortColumnIndex;
+                                                    if (newSortCol !== undefined && newSortCol >= 0) {
+                                                      if (newSortCol === cI) newSortCol = undefined;
+                                                      else if (newSortCol > cI) newSortCol = newSortCol - 1;
+                                                    }
                                                     updateItem(item.id, {
-                                                      table: { ...currentTable, columns: newCols, rows: newRows, incomeColumnIndex: newIncomeCol }
+                                                      table: { ...currentTable, columns: newCols, rows: newRows, incomeColumnIndex: newIncomeCol, sortColumnIndex: newSortCol }
                                                     });
                                                   }}
                                                   className="opacity-0 group-hover/th:opacity-100 absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full p-0.5 shadow-xs transition-opacity"
