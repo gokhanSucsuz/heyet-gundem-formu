@@ -34,6 +34,61 @@ import { RichTextEditor, Editor } from '@/components/RichTextEditor';
 import { DebouncedInput } from '@/components/DebouncedInput';
 import { usePersonnel } from '@/components/PersonnelProvider';
 
+function WrappingTableCellInput({
+  value,
+  onChange,
+  onBlur,
+  onFocus,
+  onKeyDown,
+  readOnly,
+  disabled,
+  placeholder,
+  className = '',
+  dataTableCell,
+}: {
+  value: string;
+  onChange?: (val: string) => void;
+  onBlur?: (val: string) => void;
+  onFocus?: (e: React.FocusEvent<HTMLTextAreaElement>) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  readOnly?: boolean;
+  disabled?: boolean;
+  placeholder?: string;
+  className?: string;
+  dataTableCell?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = '0px';
+    el.style.height = `${Math.max(18, el.scrollHeight)}px`;
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      data-table-cell={dataTableCell}
+      value={value}
+      readOnly={readOnly}
+      disabled={disabled}
+      placeholder={placeholder}
+      onFocus={onFocus}
+      onChange={(e) => {
+        const el = e.currentTarget;
+        el.style.height = '0px';
+        el.style.height = `${Math.max(18, el.scrollHeight)}px`;
+        onChange?.(el.value);
+      }}
+      onBlur={(e) => onBlur?.(e.currentTarget.value)}
+      onKeyDown={onKeyDown}
+      className={`w-full resize-none overflow-hidden whitespace-pre-wrap break-words leading-snug block ${className}`}
+    />
+  );
+}
+
 function PrintPreview({ form, members, settings }: { form: OfficialForm, members: Member[], settings: any }) {
   const activeLayout = { ...(form.layout || {}), ...(settings?.layout || {}) };
   const selectedMembers = members.filter(m => form.signatureMembers.includes(m.id));
@@ -2086,7 +2141,7 @@ export default function FormEditorPage() {
 
                                 {/* Real Word-Style Bordered Table on Canvas */}
                                 <div className="overflow-x-auto">
-                                  <table className="w-full border-collapse border border-black text-[10px] sm:text-[11px]">
+                                  <table className="w-full border-collapse border border-black table-fixed break-words text-[10px] sm:text-[11px]">
                                     <thead>
                                       <tr>
                                         {item.table.columns.map((col, cI) => {
@@ -2097,21 +2152,23 @@ export default function FormEditorPage() {
                                           return (
                                             <th
                                               key={cI}
-                                              className={`border border-black bg-slate-100 font-bold uppercase p-1 relative group/th ${
-                                                isSira ? 'w-12 text-center' : 'min-w-[95px]'
+                                              className={`border border-black bg-slate-100 font-bold uppercase p-1.5 relative group/th align-middle ${
+                                                isSira ? 'w-[50px] text-center' : ''
                                               } ${isIncomeCol ? 'bg-emerald-50/90' : ''} ${isSortedCol ? 'bg-blue-50/80' : ''}`}
                                             >
-                                              <div className="flex items-center gap-0.5">
-                                                <input
-                                                  type="text"
+                                              <div className="flex items-start justify-between gap-1">
+                                                <WrappingTableCellInput
                                                   disabled={!canEditForm}
                                                   value={col}
-                                                  onChange={(e) => {
+                                                  onChange={(val) => {
                                                     const newCols = [...item.table!.columns];
-                                                    newCols[cI] = e.target.value;
+                                                    newCols[cI] = val;
                                                     updateItem(item.id, { table: { ...item.table!, columns: newCols } });
                                                   }}
-                                                  className={`w-full bg-transparent font-bold uppercase outline-none focus:bg-white px-1 rounded ${
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') e.preventDefault();
+                                                  }}
+                                                  className={`bg-transparent font-bold uppercase outline-none focus:bg-white px-0.5 rounded ${
                                                     isSira ? 'text-center' : 'text-left'
                                                   }`}
                                                   placeholder={`SÜTUN ${cI + 1}`}
@@ -2120,7 +2177,7 @@ export default function FormEditorPage() {
                                                   <button
                                                     type="button"
                                                     onClick={() => handleSortTableByColumn(item.id, item.table!, cI)}
-                                                    className={`p-0.5 rounded shrink-0 transition-colors ${
+                                                    className={`p-0.5 rounded shrink-0 transition-colors mt-0.5 ${
                                                       isSortedCol
                                                         ? 'bg-blue-700 text-white'
                                                         : 'text-slate-400 hover:text-blue-700 hover:bg-blue-100/70'
@@ -2168,7 +2225,7 @@ export default function FormEditorPage() {
                                           );
                                         })}
                                         {canEditForm && (
-                                          <th className="border border-black bg-slate-100 w-14 text-center font-sans text-[9px] text-slate-500">
+                                          <th className="border border-black bg-slate-100 w-[52px] text-center font-sans text-[9px] text-slate-500">
                                             İşlem
                                           </th>
                                         )}
@@ -2195,37 +2252,38 @@ export default function FormEditorPage() {
                                               return (
                                                 <td
                                                   key={cI}
-                                                  className={`border border-black p-0.5 ${isSira ? 'text-center font-bold bg-slate-50/80' : ''}`}
+                                                  className={`border border-black p-1 align-middle ${isSira ? 'text-center font-bold bg-slate-50/80' : ''}`}
                                                 >
-                                                  <input
-                                                    type="text"
-                                                    data-table-cell={`${item.id}-${rI}-${cI}`}
+                                                  <WrappingTableCellInput
+                                                    dataTableCell={`${item.id}-${rI}-${cI}`}
                                                     readOnly={isSira || !canEditForm}
                                                     value={isSira ? (rI + 1).toString() : cell}
                                                     onFocus={(e) => {
-                                                      if (isCellLimitOver) e.target.select();
+                                                      if (isCellLimitOver) e.currentTarget.select();
                                                     }}
-                                                    onChange={(e) => {
+                                                    onChange={(val) => {
                                                       if (isSira) return;
                                                       const newRows = [...item.table!.rows];
                                                       newRows[rI] = [...newRows[rI]];
-                                                      newRows[rI][cI] = e.target.value;
+                                                      newRows[rI][cI] = val;
                                                       updateItem(item.id, { table: { ...item.table!, rows: newRows } });
                                                     }}
-                                                    onBlur={(e) => {
+                                                    onBlur={(val) => {
                                                       if (!isSira) {
-                                                        handleCellBlurOrSubmit(item.id, item.table!, rI, cI, e.target.value);
+                                                        handleCellBlurOrSubmit(item.id, item.table!, rI, cI, val);
                                                       }
                                                     }}
                                                     onKeyDown={(e) => {
-                                                      if (e.key === 'Enter') {
+                                                      if (e.key === 'Enter' && !e.shiftKey) {
                                                         e.preventDefault();
                                                         handleCellBlurOrSubmit(item.id, item.table!, rI, cI, e.currentTarget.value);
                                                         if (rI < item.table!.rows.length - 1) {
-                                                          const nextInput = document.querySelector<HTMLInputElement>(`input[data-table-cell="${item.id}-${rI + 1}-${cI}"]`);
+                                                          const nextInput = document.querySelector<HTMLElement>(`[data-table-cell="${item.id}-${rI + 1}-${cI}"]`);
                                                           if (nextInput) {
                                                             nextInput.focus();
-                                                            nextInput.select();
+                                                            if ('select' in nextInput && typeof (nextInput as HTMLTextAreaElement).select === 'function') {
+                                                              (nextInput as HTMLTextAreaElement).select();
+                                                            }
                                                           }
                                                         } else if (canEditForm) {
                                                           const newRow = Array(item.table!.columns.length).fill('');
@@ -2236,16 +2294,18 @@ export default function FormEditorPage() {
                                                           }
                                                           updateItem(item.id, { table: { ...item.table!, rows: newRows } });
                                                           setTimeout(() => {
-                                                            const nextInput = document.querySelector<HTMLInputElement>(`input[data-table-cell="${item.id}-${rI + 1}-${cI}"]`);
+                                                            const nextInput = document.querySelector<HTMLElement>(`[data-table-cell="${item.id}-${rI + 1}-${cI}"]`);
                                                             if (nextInput) {
                                                               nextInput.focus();
-                                                              nextInput.select();
+                                                              if ('select' in nextInput && typeof (nextInput as HTMLTextAreaElement).select === 'function') {
+                                                                (nextInput as HTMLTextAreaElement).select();
+                                                              }
                                                             }
                                                           }, 50);
                                                         }
                                                       }
                                                     }}
-                                                    className={`w-full bg-transparent px-1 py-0.5 outline-none focus:bg-white focus:ring-1 focus:ring-blue-600 rounded ${
+                                                    className={`bg-transparent px-1 py-0.5 outline-none focus:bg-white focus:ring-1 focus:ring-blue-600 rounded ${
                                                       isSira ? 'text-center font-bold' : ''
                                                     } ${isHighlight ? 'font-bold' : ''} ${
                                                       isCellLimitOver ? 'text-red-700 font-black' : ''
