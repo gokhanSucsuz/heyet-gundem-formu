@@ -2,24 +2,21 @@ import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SUPER_ADMIN_EMAIL, PERSONNEL_AUTH_EMAIL } from "@/lib/constants";
-import { verifyGateCookie } from "@/lib/ssoGate";
+import { clearAllAuthCookies, verifyGateCookie } from "@/lib/ssoGate";
 
 const authMiddleware = withAuth({
   callbacks: {
     authorized({ req, token }) {
       const path = req.nextUrl.pathname;
 
-      // Admin routes — only super admin
       if (path.startsWith("/admin")) {
         return token?.role === "super-admin";
       }
 
-      // Personnel select route — only personnel auth email
       if (path.startsWith("/select-personnel")) {
         return token?.role === "personnel-auth";
       }
 
-      // All other protected routes — must have a valid token with either role
       const email = token?.email;
       return email === PERSONNEL_AUTH_EMAIL || email === SUPER_ADMIN_EMAIL;
     },
@@ -39,21 +36,27 @@ export default async function middleware(req: NextRequest, event: any) {
 
     if (!isGateValid) {
       if (pathname.startsWith("/api/")) {
-        return NextResponse.json(
-          { error: "Doğrudan erişim engellendi. Lütfen Merkezi Panel üzerinden giriş yapın." },
+        const apiRes = NextResponse.json(
+          {
+            error: "Merkezi Panel oturumunuz sonlandırıldı veya doğrudan erişim engellendi.",
+            code: "PANEL_SESSION_ENDED",
+            redirectTo: "/yetkisiz-erisim",
+          },
           { status: 403 }
         );
+        return clearAllAuthCookies(apiRes);
       }
       const proto = req.headers.get("x-forwarded-proto") || "https";
       const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
       const baseOrigin =
         process.env.NEXTAUTH_URL?.replace(/\/+$/, "") ||
         (host ? `${proto}://${host}` : req.nextUrl.origin);
-      return NextResponse.redirect(`${baseOrigin}/yetkisiz-erisim`);
+      const redirectRes = NextResponse.redirect(`${baseOrigin}/yetkisiz-erisim`);
+      return clearAllAuthCookies(redirectRes);
     }
   }
 
-  if (pathname === "/login") {
+  if (pathname === "/login" || pathname.startsWith("/api/auth")) {
     return NextResponse.next();
   }
 
@@ -61,5 +64,7 @@ export default async function middleware(req: NextRequest, event: any) {
 }
 
 export const config = {
-  matcher: ["/((?!api/auth|api/sso/callback|yetkisiz-erisim|_next/static|_next/image|favicon.ico|logo-sydv.jpg).*)"],
+  matcher: [
+    "/((?!api/sso/callback|api/sso/logout|api/sso/status|yetkisiz-erisim|_next/static|_next/image|favicon.ico|logo-sydv.jpg).*)",
+  ],
 };
