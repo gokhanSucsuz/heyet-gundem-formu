@@ -588,23 +588,93 @@ export default function FormEditorPage() {
   }
 
   const canUnlock = () => {
-    if (!localForm.decisionDate) return true;
-    const decisionDate = new Date(localForm.decisionDate);
-    const now = new Date();
-    const diffTime = now.getTime() - decisionDate.getTime();
-    const diffDays = diffTime / (1000 * 3600 * 24);
-    return diffDays <= 2;
+    return isAdmin;
   };
 
   const canEditForm = !isSaving && (!localForm.isLocked || localForm.isPostponed) && (localForm.isActive !== false || isAdmin);
 
-  const updateForm = (updates: Partial<OfficialForm>) => {
-    if (!canEditForm) return;
+  const updateForm = (updates: Partial<OfficialForm>, force: boolean = false) => {
+    const isLockChange = updates.isLocked !== undefined;
+    if (!force && !isLockChange && !canEditForm) return;
     const updated = { ...localForm, ...updates, updatedAt: Date.now() };
     setLocalForm(updated);
     setIsDirty(true);
     localStorage.setItem(`draft_form_${id}`, JSON.stringify(updated));
     db.forms.queueSave(updated);
+  };
+
+  const handleLockForm = async () => {
+    if (!isAdmin) {
+      toast.error('Sadece yönetici yetkisine sahip personeller toplantıyı kilitleyebilir.');
+      return;
+    }
+    setConfirmModal({
+      isOpen: true,
+      message: 'Kararı kesinleştirmek ve toplantıyı kilitlemek istiyor musunuz? Kilitlendikten sonra sadece yönetici yetkisine sahip personeller kilidi açabilir veya toplantı ertelenirse değişiklik yapılabilir.',
+      onConfirm: async () => {
+        setIsSaving(true);
+        try {
+          const snapshots = allMembers
+            .filter(m => localForm.signatureMembers.includes(m.id))
+            .map(m => ({
+              id: m.id,
+              name: m.name,
+              title: m.title,
+              isProxy: m.isProxy,
+              proxyName: m.proxyName,
+              proxyTitle: m.proxyTitle,
+              order: m.order
+            }));
+          const updated: OfficialForm = {
+            ...localForm,
+            isLocked: true,
+            signatureSnapshots: snapshots,
+            updatedAt: Date.now()
+          };
+          setLocalForm(updated);
+          setIsDirty(false);
+          localStorage.setItem(`draft_form_${id}`, JSON.stringify(updated));
+          await db.forms.put(updated);
+          toast.success('Belge kesinleştirildi ve toplantı kilitlendi.');
+        } catch (error) {
+          console.error('Lock error:', error);
+          toast.error('Toplantı kilitlenirken bir hata oluştu.');
+        } finally {
+          setIsSaving(false);
+        }
+      }
+    });
+  };
+
+  const handleUnlockForm = async () => {
+    if (!isAdmin) {
+      toast.error('Sadece yönetici yetkisine sahip personeller toplantının kilidini kaldırabilir.');
+      return;
+    }
+    setConfirmModal({
+      isOpen: true,
+      message: 'Toplantının kilidini kaldırmak istiyor musunuz? Kilit kaldırıldığında toplantı kararları üzerinde tekrar düzenleme yapılabilecektir.',
+      onConfirm: async () => {
+        setIsSaving(true);
+        try {
+          const updated: OfficialForm = {
+            ...localForm,
+            isLocked: false,
+            updatedAt: Date.now()
+          };
+          setLocalForm(updated);
+          setIsDirty(false);
+          localStorage.setItem(`draft_form_${id}`, JSON.stringify(updated));
+          await db.forms.put(updated);
+          toast.success('Toplantı kilidi başarıyla kaldırıldı. Artık düzenleme yapabilirsiniz.');
+        } catch (error) {
+          console.error('Unlock error:', error);
+          toast.error('Toplantı kilidi kaldırılırken bir hata oluştu.');
+        } finally {
+          setIsSaving(false);
+        }
+      }
+    });
   };
 
   const saveToCloud = async () => {
@@ -1114,52 +1184,28 @@ export default function FormEditorPage() {
                 <span className="hidden sm:inline">Kaydet</span>
               </button>
 
+              {/* Sadece Yönetici Yetkilisi Olanlar İçin Kilitle / Kesinleştir Butonu */}
               {isAdmin && !localForm.isLocked && (
                 <button 
                   type="button"
-                  onClick={() => {
-                    setConfirmModal({
-                      isOpen: true,
-                      message: 'Kararı kesinleştirmek istiyor musunuz? Bu işlemden sonra sadece toplantı ertelenirse değişiklik yapılabilir.',
-                      onConfirm: async () => {
-                        const snapshots = allMembers
-                          .filter(m => localForm.signatureMembers.includes(m.id))
-                          .map(m => ({
-                            id: m.id,
-                            name: m.name,
-                            title: m.title,
-                            isProxy: m.isProxy,
-                            proxyName: m.proxyName,
-                            proxyTitle: m.proxyTitle,
-                            order: m.order
-                          }));
-                        await updateForm({ isLocked: true, signatureSnapshots: snapshots });
-                        toast.success('Belge kesinleştirildi.');
-                      }
-                    });
-                  }}
+                  onClick={handleLockForm}
                   disabled={isSaving}
-                  className="flex items-center gap-1 bg-amber-600 hover:bg-amber-500 text-white px-2.5 py-1 rounded-lg font-bold text-[11px] uppercase transition-all"
-                  title="Kararı Kesinleştir ve İmzaları Sabitle"
+                  className="flex items-center gap-1 bg-amber-600 hover:bg-amber-500 text-white px-2.5 py-1 rounded-lg font-bold text-[11px] uppercase transition-all shadow-xs active:scale-95 disabled:opacity-50"
+                  title="Kararı Kesinleştir ve Toplantıyı Kilitle"
                 >
                   <Lock className="w-3.5 h-3.5" />
                   <span className="hidden md:inline">Kesinleştir</span>
                 </button>
               )}
 
-              {isAdmin && localForm.isLocked && !localForm.isPostponed && (
+              {/* Sadece Yönetici Yetkilisi Olanlar İçin Kilidi Kaldır Butonu */}
+              {isAdmin && localForm.isLocked && (
                 <button 
                   type="button"
-                  onClick={() => {
-                    if (!canUnlock()) {
-                      toast.error('Toplantı tarihinden itibaren 2 gün geçtiği için bu formun kilidi açılamaz.');
-                      return;
-                    }
-                    updateForm({ isLocked: false });
-                  }}
-                  disabled={isSaving || !canUnlock()}
-                  title={!canUnlock() ? 'Toplantı tarihinden 2 gün geçtiği için kilit açılamaz' : 'Kilidi Aç'}
-                  className={`flex items-center gap-1 ${!canUnlock() ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-500 text-white'} px-2.5 py-1 rounded-lg font-bold text-[11px] uppercase transition-all`}
+                  onClick={handleUnlockForm}
+                  disabled={isSaving}
+                  className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg font-bold text-[11px] uppercase transition-all shadow-xs active:scale-95 disabled:opacity-50"
+                  title="Toplantı Kilidini Kaldır"
                 >
                   <Unlock className="w-3.5 h-3.5" />
                   <span className="hidden md:inline">Kilidi Aç</span>
@@ -1402,6 +1448,33 @@ export default function FormEditorPage() {
 
         {/* ==================== MAIN WORKSPACE AREA ==================== */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden pb-20 px-1 sm:px-4" id="main-scroll-container">
+          {/* Locked Form Notice */}
+          {localForm.isLocked && !localForm.isPostponed && (
+            <div className="max-w-[210mm] mx-auto mb-3">
+              <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-center justify-between gap-2.5 shadow-2xs">
+                <div className="flex items-center gap-2.5">
+                  <Lock className="w-4 h-4 text-amber-700 shrink-0" />
+                  <p className="text-xs text-amber-900 font-semibold">
+                    {isAdmin 
+                      ? 'Bu toplantı kararı kesinleştirilmiş ve kilitlenmiştir. Düzenleme yapmak için "Kilidi Aç" butonunu kullanabilirsiniz.' 
+                      : 'Bu toplantı kararı kesinleştirilmiş ve kilitlenmiştir. Yalnızca yönetici yetkisine sahip personeller kilidi kaldırabilir.'}
+                  </p>
+                </div>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={handleUnlockForm}
+                    disabled={isSaving}
+                    className="shrink-0 flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-lg font-bold text-xs shadow-2xs transition-all active:scale-95"
+                  >
+                    <Unlock className="w-3.5 h-3.5" />
+                    <span>Kilidi Aç</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Passive Form Notice for Non-Admins */}
           {localForm.isActive === false && !isAdmin && (
             <div className="max-w-[210mm] mx-auto mb-3">
